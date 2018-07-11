@@ -24,12 +24,13 @@
 *	1.0.02 - Fixed New/Full moon dislays
 *	1.0.03 - Cleanup of Preferences page
 *	1.0.04 - More tweaking to New/Full moon transitions
+*	1.0.05 - Fixed class casting errors
 *
 */
 include 'asynchttp_v1'
 import groovy.json.JsonSlurper
 
-def getVersionNum() { return "1.0.04" }
+def getVersionNum() { return "1.0.05" }
 private def getVersionLabel() { return "Meteobridge Weather Station, version ${getVersionNum()}" }
 
 metadata {
@@ -671,8 +672,9 @@ def updateWeatherTiles() {
 
         // Today data
 		if (state.meteoWeather.current != [:]) { 
-        	if (state.meteoWeather.current.isDay?.isNumber() && (state.meteoWeather.current.isDay != device.currentValue('isDay'))) {
+        	if (state.meteoWeather.current.isDay?.isNumber() && (state.meteoWeather.current.isDay.toInteger() != device.currentValue('isDay')?.toInteger())) {
             	updateWundergroundTiles()
+                // log.debug "???? ${state.meteoWeather.current.isDay} and ${ device.currentValue('isDay')}"
                 send(name: 'isDay', value: state.meteoWeather.current.isDay.toString(), displayed: true, descriptionText: ((state.meteoWeather.current.isDay.toInteger() == 1) ? 'Daybreak' : 'Nightfall'))
             }
             String td = decString(state.meteoWeather.current.temperature, 1)
@@ -705,7 +707,7 @@ def updateWeatherTiles() {
             	send(name: "solarradiation", value: '--', displayed: false)
             }
         
-		// Barometric Pressure        
+		// Barometric Pressure   
 			def pressure_trend_text
 			switch (state.meteoWeather.current.pressureTrend) {
 				case "FF" :
@@ -765,7 +767,7 @@ def updateWeatherTiles() {
                 send(name: "etDisplay", value: "${et}${h}", displayed: false)
             } else send(name: "etDisplay", value: et, displayed: false)
 
-		// Wind 		
+		// Wind 
 			String s = (speed_units && (speed_units == 'speed_mph')) ? 'mph' : 'kph'
             def winfo = "${state.meteoWeather.current.windDirText} (${state.meteoWeather.current.windDegrees.toInteger()}°) @ ${state.meteoWeather.current.windSpeed} ${s}\n(Gust: ${state.meteoWeather.current.windGust} ${s})"
 			send(name: "windinfo", value: winfo, displayed: false, descriptionText: 'Wind is ' + winfo)
@@ -824,7 +826,7 @@ def updateWeatherTiles() {
         // Lunar Phases
         	String xn = 'x'				// For waxing/waning below
             String phase = '--'
-            String l = state.meteoWeather.current.lunarAge.toString()
+            def l = state.meteoWeather.current.lunarAge?.toInteger()
         	if (state.meteoWeather.current.lunarSegment?.isNumber()) {
             	switch (state.meteoWeather.current.lunarSegment.toInteger()) {
                 	case 0: 
@@ -859,7 +861,7 @@ def updateWeatherTiles() {
                 }
             	send(name: 'moonPhase', value: phase, descriptionText: 'The Moon\'s phase is ' + phase)
                 send(name: 'lunarSegment', value: state.meteoWeather.current.lunarSegment.toString(), displayed: false)
-                send(name: 'lunarAge', value: l, units: 'days', displayed: false, descriptionText: "The Moon is ${l} days old" )          
+                send(name: 'lunarAge', value: l.toString(), units: 'days', displayed: false, descriptionText: "The Moon is ${l} days old" )          
             }
             if (state.meteoWeather.current.lunarPercent?.isNumber()) {
             	String lpct = state.meteoWeather.current.lunarPercent.toString()
@@ -973,7 +975,6 @@ private estimateLux() {
 }
 
 void getPurpleAirAQI() {
-
     if (!settings.purpleID) {
     	send(name: 'airQualityIndex', value: null, displayed: false)
         send(name: 'aqi', value: null, displayed: false)
