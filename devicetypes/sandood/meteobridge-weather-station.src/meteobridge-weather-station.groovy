@@ -102,15 +102,15 @@ metadata {
         attribute "lunarAge", "string"
         attribute "lunarPercent", "string"
         attribute "moonPhase", "string"
-        attribute "moonPercent", "string"
-        attribute "moonDisplay", "string"
+        //attribute "moonPercent", "string"
+        //attribute "moonDisplay", "string"
         attribute "moonInfo", "string"
   		attribute "lastSTupdate", "string"
         //attribute "meteoTemplate", "string"		// For debugging only
         //attribute "purpleAir", "string"			// For debugging only
         //attribute "meteoWeather", "string"		// For debugging only
         //attribute "iconErr", "string"				// For debugging only
-        attribute "wundergroundObs", "string"		// For debugging only
+        //attribute "wundergroundObs", "string"		// For debugging only
         
         command "refresh"
 		command "getWeatherReport"
