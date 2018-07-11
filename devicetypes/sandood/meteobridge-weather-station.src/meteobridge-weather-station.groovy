@@ -22,12 +22,13 @@
 *	1.0.00 - Initial Release
 *	1.0.01 - Added PurpleAir Air Quality Index (AQI)
 *	1.0.02 - Fixed New/Full moon dislays
+*	1.0.03 - Cleanup of Preferences page
 *
 */
 include 'asynchttp_v1'
 import groovy.json.JsonSlurper
 
-def getVersionNum() { return "1.0.02" }
+def getVersionNum() { return "1.0.03" }
 private def getVersionLabel() { return "Meteobridge Weather Station, version ${getVersionNum()}" }
 
 metadata {
@@ -104,7 +105,7 @@ metadata {
         attribute "moonPhase", "string"
         //attribute "moonPercent", "string"
         //attribute "moonDisplay", "string"
-        attribute "moonInfo", "string"
+        //attribute "moonInfo", "string"
   		attribute "lastSTupdate", "string"
         //attribute "meteoTemplate", "string"		// For debugging only
         //attribute "purpleAir", "string"			// For debugging only
@@ -117,51 +118,40 @@ metadata {
     }
 
     preferences {
-    	input (description: "Select the update frequency", 
-        	title: "Update frequency", displayDuringSetup: true, type: 'paragraph', element: 'paragraph')
-        input ("updateMins", "enum", title: "Update frequency", required: true, displayDuringSetup: true, defaultValue: '5', options: ['1','5','10','15','30'])
+    	input(name: 'updateMins', type: 'enum', description: "Select the update frequency", 
+        	title: "${getVersionLabel()}\n\nUpdate frequency (minutes)", displayDuringSetup: true, defaultValue: '5', options: ['1','5','10','15','30'], required: true)
         
-        input (description: "Setup Meteobridge access", 
-        	title: "Meteobridge Setup", displayDuringSetup: true, type: 'paragraph', element: 'paragraph')
-        input "zipCode", "text", title: "Zip Code or PWS (optional)", required: false, displayDuringSetup: true
+        input(name: "zipCode", type: "text", title: "Zip Code or PWS (optional)", required: false, displayDuringSetup: true, description: 'Specify ZipCode or pws:')
+        
+        input (description: "Setup Meteobridge access", title: "Meteobridge Setup", displayDuringSetup: true, type: 'paragraph', element: 'MeteoBridge')
         input "meteoIP", "string", title:"Meteobridge IP Address", description: "Eenter your Meteobridge's IP Address", required: true, displayDuringSetup: true
  		input "meteoPort", "string", title:"Meteobridge Port", description: "Enter your Meteobridge's Port", defaultValue: 80 , required: true, displayDuringSetup: true
     	input "meteoUser", "string", title:"Meteobridge User", description: "Enter your Meteobridge's username", required: true, defaultValue: 'meteobridge', displayDuringSetup: true
     	input "meteoPassword", "password", title:"Meteobridge Password", description: "Enter your Meteobridge's password", required: true, displayDuringSetup: true
         
-        input (description: "Enter PurpleAir Sensor ID",
-        	title: "PurpleAir Sensor", displayDuringSetup: true, type: 'paragraph', element: 'paragraph')
         input ("purpleID", "string", title: 'Purple Air Sensor ID (optional)', description: 'Enter your PurpleAir Sensor ID', required: false, displayDuringSetup: true)
         
-        input (description: "Setting the Barometer Pressure units (optional)", 
-            title: "Pressure units", displayDuringSetup: true, type: "paragraph", element: "paragraph")
-        input ("pres_units", "enum", title: "Pressure units", required: false, displayDuringSetup: true, 
+        input ("pres_units", "enum", title: "Barometric Pressure units (optional)", required: false, displayDuringSetup: true, description: "Select desired units:",
 			options: [
 		        "press_in":"Inches",
 		        "press_mb":"milli bars"
             ])
-        input (description: "Setting the distance units (optional)",
-			title: "Distance Units", displayDuringSetup: false, type: "paragraph", element: "paragraph")
-        input ("dist_units", "enum", title: "Distance units", required: false, displayDuringSetup: true, 
+        input ("dist_units", "enum", title: "Distance units (optional)", required: false, displayDuringSetup: true, description: "Select desired units:", 
 			options: [
 		        "dist_mi":"Miles",
 		        "dist_km":"Kilometers"
             ])
-        input (description: "Setting the Height units (optional)",
-			title: "Height Units", displayDuringSetup: false, type: "paragraph", element: "paragraph")
-        input("height_units", "enum", title: "Height units", required: false, displayDuringSetup: true, 
+        input("height_units", "enum", title: "Height units (optional)", required: false, displayDuringSetup: true, description: "Select desired units:",
 			options: [
                 "height_in":"Inches",
                 "height_mm":"Millimiters"
             ])
-        input (description: "Setting the Speed units (optional)",
-			title: "Speed Units", displayDuringSetup: false, type: "paragraph", element: "paragraph")
-        input("speed_units", "enum", title: "Speed units", required: false, displayDuringSetup: true, 
+        input("speed_units", "enum", title: "Speed units (optional)", required: false, displayDuringSetup: true, 
 			options: [
                 "speed_mph":"Miles per Hour",
                 "speed_kph":"Kilometers per Hour"
             ])
-        input "weather", "device.smartweatherStationTile", title: "Weather...", multiple: true, required: false
+        // input "weather", "device.smartweatherStationTile", title: "Weather...", multiple: true, required: false
     }
     
     tiles(scale: 2) {
