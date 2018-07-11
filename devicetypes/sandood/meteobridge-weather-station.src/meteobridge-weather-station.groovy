@@ -20,13 +20,14 @@
 *	Date: 2017 - 2018
 *
 *	1.0.00 - Initial Release
-*	1.0.01 - Added PurpleAir AQI
+*	1.0.01 - Added PurpleAir Air Quality Index (AQI)
+*	1.0.02 - Fixed New/Full moon dislays
 *
 */
 include 'asynchttp_v1'
 import groovy.json.JsonSlurper
 
-def getVersionNum() { return "1.0.01" }
+def getVersionNum() { return "1.0.02" }
 private def getVersionLabel() { return "Meteobridge Weather Station, version ${getVersionNum()}" }
 
 metadata {
