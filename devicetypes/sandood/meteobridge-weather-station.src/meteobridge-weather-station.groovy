@@ -23,12 +23,13 @@
 *	1.0.01 - Added PurpleAir Air Quality Index (AQI)
 *	1.0.02 - Fixed New/Full moon dislays
 *	1.0.03 - Cleanup of Preferences page
+*	1.0.04 - More tweaking to New/Full moon transitions
 *
 */
 include 'asynchttp_v1'
 import groovy.json.JsonSlurper
 
-def getVersionNum() { return "1.0.03" }
+def getVersionNum() { return "1.0.04" }
 private def getVersionLabel() { return "Meteobridge Weather Station, version ${getVersionNum()}" }
 
 metadata {
@@ -823,10 +824,12 @@ def updateWeatherTiles() {
         // Lunar Phases
         	String xn = 'x'				// For waxing/waning below
             String phase = '--'
+            String l = state.meteoWeather.current.lunarAge.toString()
         	if (state.meteoWeather.current.lunarSegment?.isNumber()) {
             	switch (state.meteoWeather.current.lunarSegment.toInteger()) {
                 	case 0: 
                     	phase = 'New'
+						xn = (l >= 27) ? 'n' : 'x'
                         break;
                     case 1:
                     	phase = 'Waxing Crescent'
@@ -839,7 +842,7 @@ def updateWeatherTiles() {
                         break;
                     case 4:
                     	phase = 'Full'
-                        xn = 'n'
+                        xn = (l <= 14) ? 'x' : 'n'
                         break;
                     case 5:
                     	phase = 'Waning Gibbous'
@@ -856,13 +859,12 @@ def updateWeatherTiles() {
                 }
             	send(name: 'moonPhase', value: phase, descriptionText: 'The Moon\'s phase is ' + phase)
                 send(name: 'lunarSegment', value: state.meteoWeather.current.lunarSegment.toString(), displayed: false)
-                String l = state.meteoWeather.current.lunarAge.toString()
                 send(name: 'lunarAge', value: l, units: 'days', displayed: false, descriptionText: "The Moon is ${l} days old" )          
             }
             if (state.meteoWeather.current.lunarPercent?.isNumber()) {
             	String lpct = state.meteoWeather.current.lunarPercent.toString()
-            	send(name: 'lunarPercent', value: lpct, displayed: true, unit: '%', descriptionText: "The Moon is ${lpct} lit")
-                String pcnt = (phase == 'New') ? '000' : ((phase == 'Full') ? '100' : sprintf('%03d', (Math.round(state.meteoWeather.current.lunarPercent.toFloat() / 5.0) * 5).toInteger()))
+            	send(name: 'lunarPercent', value: lpct, displayed: true, unit: '%', descriptionText: "The Moon is ${lpct}% lit")
+                String pcnt = /* (phase == 'New') ? '000' : ((phase == 'Full') ? '100' : */( sprintf('%03d', (Math.round(lpct.toFloat() / 5.0) * 5).toInteger()))
                 // pcnt = (Math.round(pcnt / 5) * 5) as Integer
                 String pname = 'Moon-wa' + xn + 'ing-' + pcnt
                 // log.debug "Lunar Percent by 5s: ${pcnt} - ${pname}"
