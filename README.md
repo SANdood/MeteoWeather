@@ -11,6 +11,9 @@ This device also calculates and displays Purple Air Air Quality Index from a spe
 
 **Warning:** *If you try to convert this code to support a Meteobridge on an external IP, you will have to accomodate any differences between the Timezone of your Hub and the Meteobridge, otherwise several values will be inaccurate.*
 
-Change Log:<br>
-v1.0.01 - Adds support for Purple Air air quality sensors, via asyncHttp (does not use local hubAction)
-v1.0.02 - Fixes an issue with the display of New & Full Moon
+## Change Log:
+v1.0.01 - Adds support for Purple Air air quality sensors, via asyncHttp (does not use local hubAction)<br>
+v1.0.02 - Fixes an issue with the display of New & Full Moon<br>
+
+## Screen Shot:
+<img src="https://raw.githubusercontent.com/SANdood/MeteoWeather/master/images/MeteoweatherStation.png" border="1"/> 
