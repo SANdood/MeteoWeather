@@ -19,6 +19,7 @@ Significantly, EVERYTHING that this DTH displays in Tiles is also available prog
 `v1.0.03 - Cleanup of preferences page`<br>
 `v1.0.04 - More tweaking to New/Full moon transitions`<br>
 `v1.0.05 - Fixed class casting errors`<br>
+`v1.0.06 - Renamed some attributes for consistency`<br>
 
 ## Screen Shot:
 <img src="https://raw.githubusercontent.com/SANdood/MeteoWeather/master/images/MeteoweatherStation.png" border="1" height="1200" /> 
