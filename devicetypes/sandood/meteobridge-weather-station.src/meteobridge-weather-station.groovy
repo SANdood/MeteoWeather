@@ -25,12 +25,13 @@
 *	1.0.03 - Cleanup of Preferences page
 *	1.0.04 - More tweaking to New/Full moon transitions
 *	1.0.05 - Fixed class casting errors
+*	1.0.06 - Renamed some attributes for naming consistency
 *
 */
 include 'asynchttp_v1'
 import groovy.json.JsonSlurper
 
-def getVersionNum() { return "1.0.05" }
+def getVersionNum() { return "1.0.06" }
 private def getVersionLabel() { return "Meteobridge Weather Station, version ${getVersionNum()}" }
 
 metadata {
@@ -63,13 +64,13 @@ metadata {
         attribute "airQualityIndex", "string"
         attribute "aqi", "string"
         attribute "wind", "string"
-        attribute "winddirection", "string"
-        attribute "wind_gust", "string"
+        attribute "windDirection", "string"
+        attribute "windGust", "string"
         attribute "windChill", "string"
-        attribute "winddirection_deg", "string"
+        attribute "windDirectionDegrees", "string"
         //attribute "windinfo", "string"
         attribute "heatIndex", "string"        
-        attribute "uv_index", "string"
+        attribute "uvIndex", "string"
         attribute "forecastRule", "string"
         attribute "heatIndex", "string"
         attribute "precipYesterday", "string"
@@ -380,8 +381,8 @@ metadata {
         valueTile("evo", "device.etDisplay", inactiveLabel: false, width: 1, height: 1, decoration: "flat", wordWrap: true) {
             state "default", label:'ET\n${currentValue}\nper hr'
         }
-        valueTile("uv_index", "device.uv_index", inactiveLabel: false, decoration: "flat") {
-            state "uv_index", label: 'UV\nIndex\n${currentValue}', unit: "UV Index"
+        valueTile("uvIndex", "device.uvIndex", inactiveLabel: false, decoration: "flat") {
+            state "uvIndex", label: 'UV\nIndex\n${currentValue}', unit: "UV Index"
         }
         standardTile("water", "device.water", inactiveLabel: false, width: 1, height: 1, decoration: "flat", wordWrap: true) {
             state "default", label: 'updating...', icon: "st.unknown.unknown.unknown"
@@ -517,7 +518,7 @@ metadata {
         details([	"temperatureDisplay", /* "humidity",*/ 
         			/*"weatherIcon", */ 'aqi', /* "weather" */ 'windChill', "heatIndex" , "dewpoint", "pressure", 'humidity', 
                     "moonDisplay", "mooninfo", "windinfo", "solarRadiation",  "water", 
-                    "light", "uv_index", "evo", "precipYesterday", "precipToday",  "precipLastHour", 
+                    "light", "uvIndex", "evo", "precipYesterday", "precipToday",  "precipLastHour", 
                     "forecast", 'precipRate',  
                     "sunrise", "sunset", "daylight", "moonrise", "moonset",  'refresh', 
                      "locationTile", 'lowTemp', 'highTemp', 'lowHumidity', 'highHumidity', "lastSTupdate",
@@ -698,13 +699,13 @@ def updateWeatherTiles() {
             hum = intString(state.meteoWeather.current.lowHum)
             send(name: "lowHumidity", value: hum, unit: "%", descriptionText: "Low Humidity so far today is ${hum}%")
             def uv = decString(state.meteoWeather.current.uvIndex,1)
-            send(name: "uv_index", value: "${uv}", descriptionText: "UV Index is ${uv}" )
+            send(name: "uvIndex", value: "${uv}", descriptionText: "UV Index is ${uv}" )
            
             if (state.meteoWeather.current.solarRadiation != null) {
             	def val = Math.round(state.meteoWeather.current.solarRadiation.toFloat())
-				send(name: "solarRadiation", value: val, units: 'W/m²', descriptionText: "Solar radiation is ${val} W/m²")
+				send(name: "solarRadiation", value: val, unit: 'W/m²', descriptionText: "Solar radiation is ${val} W/m²")
             } else {
-            	send(name: "solarradiation", value: '--', displayed: false)
+            	send(name: "solarRadiation", value: '--', displayed: false)
             }
         
 		// Barometric Pressure   
@@ -771,10 +772,10 @@ def updateWeatherTiles() {
 			String s = (speed_units && (speed_units == 'speed_mph')) ? 'mph' : 'kph'
             def winfo = "${state.meteoWeather.current.windDirText} (${state.meteoWeather.current.windDegrees.toInteger()}°) @ ${state.meteoWeather.current.windSpeed} ${s}\n(Gust: ${state.meteoWeather.current.windGust} ${s})"
 			send(name: "windinfo", value: winfo, displayed: false, descriptionText: 'Wind is ' + winfo)
-			send(name: "wind_gust", value: "${state.meteoWeather.current.windGust}", descriptionText: "Winds gusting to ${state.meteoWeather.current.windGust} ${s}")
-			send(name: "winddirection", value: "${state.meteoWeather.current.windDirText}", descriptionText: "Winds from the ${state.meteoWeather.current.windDirText}")
-			send(name: "winddirection_deg", value: "${state.meteoWeather.current.windDegrees.toInteger()}", descriptionText: "Winds from ${state.meteoWeather.current.windDegrees.toInteger()}°" )
-			send(name: "wind", value: "${state.meteoWeather.current.windSpeed}", descriptionText: "Wind speed is ${state.meteoWeather.current.windSpeed} ${s}")
+			send(name: "windGust", value: "${state.meteoWeather.current.windGust}", unit: "${s}", descriptionText: "Winds gusting to ${state.meteoWeather.current.windGust} ${s}")
+			send(name: "windDirection", value: "${state.meteoWeather.current.windDirText}", descriptionText: "Winds from the ${state.meteoWeather.current.windDirText}")
+			send(name: "windDirectionDegrees", value: "${state.meteoWeather.current.windDegrees.toInteger()}", unit: '°', descriptionText: "Winds from ${state.meteoWeather.current.windDegrees.toInteger()}°" )
+			send(name: "wind", value: "${state.meteoWeather.current.windSpeed}", unit: "${s}", descriptionText: "Wind speed is ${state.meteoWeather.current.windSpeed} ${s}")
 
 			if (location.name != device.currentValue("locationName")) {
 				send(name: "locationName", value: location.name, isStateChange: true, descriptionText: "Location is ${loc}")
@@ -861,7 +862,7 @@ def updateWeatherTiles() {
                 }
             	send(name: 'moonPhase', value: phase, descriptionText: 'The Moon\'s phase is ' + phase)
                 send(name: 'lunarSegment', value: state.meteoWeather.current.lunarSegment.toString(), displayed: false)
-                send(name: 'lunarAge', value: l.toString(), units: 'days', displayed: false, descriptionText: "The Moon is ${l} days old" )          
+                send(name: 'lunarAge', value: l.toString(), unit: 'days', displayed: false, descriptionText: "The Moon is ${l} days old" )          
             }
             if (state.meteoWeather.current.lunarPercent?.isNumber()) {
             	String lpct = state.meteoWeather.current.lunarPercent.toString()
