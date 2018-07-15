@@ -26,12 +26,14 @@
 *	1.0.04 - More tweaking to New/Full moon transitions
 *	1.0.05 - Fixed class casting errors
 *	1.0.06 - Renamed some attributes for naming consistency
+*	1.0.07 - Added pref setting for Lux scale
+*	1.0.08 - Increased internal attribute precision for temps & precipitation
 *
 */
 include 'asynchttp_v1'
 import groovy.json.JsonSlurper
 
-def getVersionNum() { return "1.0.06" }
+def getVersionNum() { return "1.0.08" }
 private def getVersionLabel() { return "Meteobridge Weather Station, version ${getVersionNum()}" }
 
 metadata {
@@ -110,6 +112,7 @@ metadata {
         //attribute "moonDisplay", "string"
         //attribute "moonInfo", "string"
   		attribute "lastSTupdate", "string"
+        attribute "timestamp", "string"
         //attribute "meteoTemplate", "string"		// For debugging only
         //attribute "purpleAir", "string"			// For debugging only
         //attribute "meteoWeather", "string"		// For debugging only
@@ -147,13 +150,20 @@ metadata {
         input("height_units", "enum", title: "Height units (optional)", required: false, displayDuringSetup: true, description: "Select desired units:",
 			options: [
                 "height_in":"Inches",
-                "height_mm":"Millimiters"
+                "height_mm":"Millimeters"
             ])
-        input("speed_units", "enum", title: "Speed units (optional)", required: false, displayDuringSetup: true, 
+        input("speed_units", "enum", title: "Speed units (optional)", required: false, displayDuringSetup: true, description: "Select desire units:",
 			options: [
                 "speed_mph":"Miles per Hour",
                 "speed_kph":"Kilometers per Hour"
             ])
+        input("lux_scale", "enum", title: "Lux Scale (optional)", required: false, displayDuringSetup: true, description: "Select desired scale:",
+        	options: [
+            	"default":"0-1000 (Aeon)",
+                "std":"0-10,000 (ST)",
+                "real":"0-100,000 (actual)"
+            ])
+                
         // input "weather", "device.smartweatherStationTile", title: "Weather...", multiple: true, required: false
     }
     
@@ -376,7 +386,7 @@ metadata {
             state "default", label:'Daylight\n${currentValue}'
         }
         valueTile("light", "device.illuminance", inactiveLabel: false, width: 1, height: 1, decoration: "flat", wordWrap: true) {
-            state "default", label:'Lux\n${currentValue}'
+            state "default", label:'Illum\n${currentValue}\nlx'
         }
         valueTile("evo", "device.etDisplay", inactiveLabel: false, width: 1, height: 1, decoration: "flat", wordWrap: true) {
             state "default", label:'ET\n${currentValue}\nper hr'
@@ -651,23 +661,25 @@ def updateWeatherTiles() {
         // log.debug "meteoWeather: ${state.meteoWeather}"
         def now = new Date(state.meteoWeather.timestamp).format('HH:mm:ss MM/dd/yyyy',location.timeZone)
         sendEvent(name:"lastSTupdate", value: now, displayed: false)
+        sendEvent(name:"timestamp", value: state.meteoWeather.timestamp, displayed: false)
 		String unit = getTemperatureScale()
         String h = (height_units && (height_units == 'height_in')) ? '"' : 'mm'
         
         // Yesterday data
         if (state.meteoWeather.yesterday) {
-        	String t = decString(state.meteoWeather.yesterday.highTemp, 1)
+        	String t = decString(state.meteoWeather.yesterday.highTemp, 2)
         	send(name: 'highTempYesterday', value: t, unit: unit, descriptionText: "High Temperature yesterday was ${t}°${unit}")
-            t = decString(state.meteoWeather.yesterday.lowTemp, 1)
+            t = decString(state.meteoWeather.yesterday.lowTemp, 2)
             send(name: 'lowTempYesterday', value: t, unit: unit, descriptionText: "Low Temperature yesterday was ${t}°${unit}")
             String hum = intString(state.meteoWeather.yesterday.highHum)
             send(name: 'highHumYesterday', value: hum, unit: "%", descriptionText: "High Humidity yesterday was ${hum}%")
             hum = intString(state.meteoWeather.yesterday.lowHum)
             send(name: 'lowHumYesterday', value: hum, unit: "%", descriptionText: "Low Humidity yesterday was ${hum}%")
-            String ryd = decString(state.meteoWeather.yesterday.rainfall, 2)
+            String ryd = decString(state.meteoWeather.yesterday.rainfall, 3)
+            String rydd = decString(state.meteoWeather.yesterday.rainfall, 2)
             if (ryd != '--') {
 				send(name: 'precipYesterday', value: ryd, unit: "${h}", descriptionText: "Precipitation yesterday was ${ryd}${h}")
-                send(name: 'precipYesterdayDisplay', value: "${ryd}${h}", displayed: false)
+                send(name: 'precipYesterdayDisplay', value: "${rydd}${h}", displayed: false)
             } else send(name: 'precipYesterdayDisplay', value: ryd, displayed: false)
         }
 
@@ -678,18 +690,19 @@ def updateWeatherTiles() {
                 // log.debug "???? ${state.meteoWeather.current.isDay} and ${ device.currentValue('isDay')}"
                 send(name: 'isDay', value: state.meteoWeather.current.isDay.toString(), displayed: true, descriptionText: ((state.meteoWeather.current.isDay.toInteger() == 1) ? 'Daybreak' : 'Nightfall'))
             }
-            String td = decString(state.meteoWeather.current.temperature, 1)
+            String td = decString(state.meteoWeather.current.temperature, 2)
 			send(name: "temperature", value: td, unit: unit, descriptionText: "Temperature is ${td}°${unit}")
+            td = decString(state.meteoWeather.current.temperature, 1)
             send(name: "temperatureDisplay", value: td + '°', unit: unit, displayed: false, descriptionText: "Temperature is ${td}°${unit}")
-            String t = decString(state.meteoWeather.current.highTemp, 1)
+            String t = decString(state.meteoWeather.current.highTemp, 2)
             send(name: "highTemp", value: t, unit: unit, descriptionText: "High Temperature so far today is ${t}°${unit}")
-            t = decString(state.meteoWeather.current.lowTemp, 1)
+            t = decString(state.meteoWeather.current.lowTemp, 2)
             send(name: "lowTemp", value: t , unit: unit, descriptionText: "Low Temperature so far today is ${t}°${unit}")
-            t = decString(state.meteoWeather.current.heatIndex, 1)
+            t = decString(state.meteoWeather.current.heatIndex, 2)
 			send(name: "heatIndex", value:t , unit: unit, descriptionText: "Heat Index is ${t}°${unit}")
-			t = decString(state.meteoWeather.current.dewpoint, 1)
+			t = decString(state.meteoWeather.current.dewpoint, 2)
             send(name: "dewpoint", value: t , unit: unit, descriptionText: "Dewpoint is ${t}°${unit}")
-			t = decString(state.meteoWeather.current.windChill, 1)
+			t = decString(state.meteoWeather.current.windChill, 2)
             send(name: "windChill", value: t, unit: unit, descriptionText: "Wind Chill is ${t}°${unit}")
             
             String hum = intString(state.meteoWeather.current.humidity)
@@ -736,16 +749,18 @@ def updateWeatherTiles() {
 			send(name: 'pressureDisplay', value: "${pr}\n${pv}\n${pressure_trend_text}", descriptionText: "Barometric Pressure is ${pr} ${pv} - ${pressure_trend_text}")
             send(name: 'pressureTrend', value: pressure_trend_text, displayed: false, descriptionText: "Barometric Pressure trend is ${pressure_trend_text}")
        
-		// Rain Yesterday, Rain Today, Rain Last Hour
-        	String rlh = decString(state.meteoWeather.current.rainLastHour, 2)
+		// Rain Rate, Rain Today, Rain Last Hour
+        	String rlh = decString(state.meteoWeather.current.rainLastHour, 3)
+            String rlhd = decString(state.meteoWeather.current.rainLastHour, 2)
             if (rlh != '--') {
-				send(name: 'precipLastHourDisplay', value: "${rlh}${h}", displayed: false)
+				send(name: 'precipLastHourDisplay', value: "${rlhd}${h}", displayed: false)
             	send(name: 'precipLastHour', value: rlh, unit: "${h}", descriptionText: "Precipitation in the Last Hour was ${rlh}${h}")
             } else send(name: 'precipLastHourDisplay', value: rlh, displayed: false)
             
-            String rtd = decString(state.meteoWeather.current.rainfall, 2)
+            String rtd = decString(state.meteoWeather.current.rainfall, 3)
+            String rtdd = decString(state.meteoWeather.current.rainfall, 2)
 			if (rtd != '--') {
-            	send(name: 'precipTodayDisplay', value:  "${rtd}${h}", displayed: false)
+            	send(name: 'precipTodayDisplay', value:  "${rtdd}${h}", displayed: false)
             	send(name: 'precipToday', value: rtd, unit: "${h}", descriptionText: "Precipitation so far today is ${rtd}${h}")
             } else send(name: 'precipTodayDisplay', value:  rtd, displayed: false)
             
@@ -816,7 +831,7 @@ def updateWeatherTiles() {
             
          // Lux estimator
             def lux = estimateLux()
-			send(name: "illuminance", value: lux, descriptionText: "Lux is ${lux} (est)")
+			send(name: "illuminance", value: lux, unit: 'lx', descriptionText: "Lux is ${lux} (est)")
             
     	// Forecast
     		if (state.meteoWeather.forecast?.text != null) {
@@ -926,11 +941,29 @@ private String intString( value ) {
 private estimateLux() {
 	// If we have it, use solarRadiation as a proxy for Lux 
 	if (state.meteoWeather?.current?.solarRadiation?.isNumber()){
-    	def lux = (state.meteoWeather.current.isNight > 0) ? 10 : Math.round(state.meteoWeather.current.solarRadiation / 0.225)	// Hack to approximate Aeon multi-sensor values
-        return (lux < 10) ? 10 : ((lux > 1000) ? 1000 : lux)
+    	def lux
+    	switch (settings.lux_scale) {
+        	case 'std':
+            	// 0-10,000 - SmartThings Weather Tile scale
+                lux = (state.meteoWeather.current.isNight > 0) ? 10 : Math.round((state.meteoWeather.current.solarRadiation / 0.225) * 10.0)	// Hack to approximate SmartThings Weather Station
+        		return (lux < 10) ? 10 : ((lux > 10000) ? 10000 : lux)
+    			break;
+                
+        	case 'real':
+            	// 0-100,000 - realistic estimated conversion from SolarRadiation
+                lux = (state.meteoWeather.current.isNight > 0) ? 10 : Math.round(state.meteoWeather.current.solarRations / 0.0079)		// Hack approximation of Davis w/m^2 to lx
+                return (lux< 10) ? 10 : ((lux > 100000) ? 100000 : lux)
+                break;
+                
+            case 'default':
+            default:
+            	lux = (state.meteoWeather.current.isNight > 0) ? 10 : Math.round(state.meteoWeather.current.solarRadiation / 0.225)	// Hack to approximate Aeon multi-sensor values
+        		return (lux < 10) ? 10 : ((lux > 1000) ? 1000 : lux)
+                break;
+        }
     }
     // handle other approximations here
-    def lux = 0
+    def lux = 10
     def now = new Date().time
     if (state.meteoWeather.current.isDay > 0) {
         //day
@@ -967,6 +1000,15 @@ private estimateLux() {
             //dusk
             lux = Math.round(lux * (beforeSunset/oneHour))
         }
+        
+        // Now, adjust the scale based on the settings
+        if (settings.lux_scale) {
+        	if (settings.lux_scale == 'std') {
+            	lux = lux * 10 		// 0-10,000
+            } else if (settings.lux_scale == 'real') {
+            	lux = lux * 100		// 0-100,000
+            }
+       	}   	     
     } else {
         //night - always set to 10 for now
         //could do calculations for dusk/dawn too
