@@ -14,7 +14,7 @@
 *
 *  Author: SmartThings
 *
-*  Date: 2013-04-30
+*  Date: 2018-07-04
 *
 *	Updates by Barry A. Burke (storageanarchy@gmail.com)
 *	Date: 2017 - 2018
@@ -28,12 +28,13 @@
 *	1.0.06 - Renamed some attributes for naming consistency
 *	1.0.07 - Added pref setting for Lux scale
 *	1.0.08 - Increased internal attribute precision for temps & precipitation
+*	1.0.09 - Changed to use my Ecobee Suite weather icons (black circles)
 *
 */
 include 'asynchttp_v1'
 import groovy.json.JsonSlurper
 
-def getVersionNum() { return "1.0.08" }
+def getVersionNum() { return "1.0.09" }
 private def getVersionLabel() { return "Meteobridge Weather Station, version ${getVersionNum()}" }
 
 metadata {
@@ -95,6 +96,7 @@ metadata {
         attribute "dayHours", "string"
         attribute "dayMinutes", "string"
         attribute "isDay", "string"
+        attribute "isNight", "string"
         attribute "moonrise", "string"
         attribute "moonriseAPM", "string"
         attribute "moonriseEpoch", "string"
@@ -182,104 +184,49 @@ metadata {
 		                [value: 96, color: "#bc2323"]
                     ])
             }
-            //tileAttribute("device.humidity", key: "SECONDARY_CONTROL") {
-            //    attributeState("default", label:'${currentValue}%', unit:"%")
-            //}
-            //tileAttribute('device.weather', key: 'OPERATING_STATE') {
-            //	attributeState('default', label: '${currentValue}', defaultValue: true, backgroundColors: null)
-            //}
             tileAttribute("device.weatherIcon", key: "SECONDARY_CONTROL" /* decoration: "flat", inactiveLabel: false, width: 1, height: 1*/) {
-                attributeState "chanceflurries", 	icon:"st.custom.wu1.chanceflurries", 	label: "Chance of Flurries"
-                attributeState "chancerain", 		icon:"st.custom.wu1.chancerain", 		label: "Chance of Rain"
-                attributeState "chancesleet", 		icon:"st.custom.wu1.chancesleet", 		label: "Chance of Sleet"
-                attributeState "chancesnow", 		icon:"st.custom.wu1.chancesnow", 		label: "Chance of Snow"
-                attributeState "chancetstorms", 	icon:"st.custom.wu1.chancetstorms", 	label: "Chance of Thunderstorms"
-                attributeState "clear", 			icon:"st.custom.wu1.clear", 			label: "Clear"
-                attributeState "cloudy", 			icon:"st.custom.wu1.cloudy", 			label: "Overcast"
-                attributeState "flurries", 			icon:"st.custom.wu1.flurries", 			label: "Flurries"
-                attributeState "fog", 				icon:"st.custom.wu1.fog", 				label: "Foggy"
-                attributeState "hazy", 				icon:"st.custom.wu1.hazy", 				label: "Hazy"
-                attributeState "mostlycloudy", 		icon:"st.custom.wu1.mostlycloudy", 		label: "Mostly Cloudy"
-                attributeState "mostlysunny", 		icon:"st.custom.wu1.mostlysunny", 		label: "Mostly Sunny"
-                attributeState "partlycloudy", 		icon:"st.custom.wu1.partlycloudy", 		label: "Partly Cloudy"
-                attributeState "partlysunny", 		icon:"st.custom.wu1.partlysunny", 		label: "Partly Sunny"
-                attributeState "rain", 				icon:"st.custom.wu1.rain", 				label: "Rain"
-                attributeState "sleet",				icon:"st.custom.wu1.sleet", 			label: "Sleet"
-                attributeState "snow", 				icon:"st.custom.wu1.snow", 				label: "Snow"
-                attributeState "sunny", 			icon:"st.custom.wu1.sunny", 			label: "Sunny"
-                attributeState "tstorms", 			icon:"st.custom.wu1.tstorms", 			label: "Thunderstorms"
-                attributeState "cloudy", 			icon:"st.custom.wu1.cloudy", 			label: "Overcast"
-                //attributeState "partlycloudy", 		icon:"st.custom.wu1.partlycloudy", 	label: ""
-                attributeState "nt_chanceflurries", icon:"st.custom.wu1.nt_chanceflurries", label: "Chance of Flurries"
-                attributeState "nt_chancerain", 	icon:"st.custom.wu1.nt_chancerain", 	label: "Chance of Rain"
-                attributeState "nt_chancesleet", 	icon:"st.custom.wu1.nt_chancesleet", 	label: "Chance of Sleet"
-                attributeState "nt_chancesnow", 	icon:"st.custom.wu1.nt_chancesnow", 	label: "Chance of Snow"
-                attributeState "nt_chancetstorms", 	icon:"st.custom.wu1.nt_chancetstorms", 	label: "Chance of Thunderstorms"
-                attributeState "nt_clear", 			icon:"st.custom.wu1.nt_clear", 			label: "Clear"
-                attributeState "nt_cloudy", 		icon:"st.custom.wu1.nt_cloudy", 		label: "Cloudy"
-                attributeState "nt_flurries", 		icon:"st.custom.wu1.nt_flurries", 		label: "Flurries"
-                attributeState "nt_fog", 			icon:"st.custom.wu1.nt_fog", 			label: "Foggy"
-                attributeState "nt_hazy", 			icon:"st.custom.wu1.nt_hazy", 			label: "Hazy"
-                attributeState "nt_mostlycloudy", 	icon:"st.custom.wu1.nt_mostlycloudy", 	label: "Mostly Cloudy"
-                attributeState "nt_mostlysunny", 	icon:"st.custom.wu1.nt_mostlysunny", 	label: "Mostly Clear Skies"
-                attributeState "nt_partlycloudy", 	icon:"st.custom.wu1.nt_partlycloudy", 	label: "Partly Cloudy"
-                attributeState "nt_partlysunny", 	icon:"st.custom.wu1.nt_partlysunny", 	label: "Partly Clear Skies"
-                attributeState "nt_flurries", 		icon:"st.custom.wu1.nt_sleet", 			label: "Flurries"
-                attributeState "nt_rain", 			icon:"st.custom.wu1.nt_rain", 			label: "Rain"
-                attributeState "nt_sleet", 			icon:"st.custom.wu1.nt_sleet", 			label: "Sleet"
-                attributeState "nt_snow", 			icon:"st.custom.wu1.nt_snow", 			label: "Snow"
-                attributeState "nt_sunny", 			icon:"st.custom.wu1.nt_sunny", 			label: "Clear Skies"
-                attributeState "nt_tstorms", 		icon:"st.custom.wu1.nt_tstorms", 		label: "Thunderstorms"
-                attributeState "nt_cloudy", 		icon:"st.custom.wu1.nt_cloudy", 		label: "Overcast"
-                // attributeState "nt_partlycloudy", 	icon:"st.custom.wu1.nt_partlycloudy", 	label: ""
+                attributeState "chanceflurries", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_flurries_11_fc.png", 				label: "Chance of Flurries"
+                attributeState "chancerain", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_drizzle_05_fc.png", 				label: "Chance of Rain"
+                attributeState "chancesleet", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_freezing_rain_07_fc.png", 			label: "Chance of Sleet"
+                attributeState "chancesnow", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_snow_10_fc.png", 					label: "Chance of Snow"
+                attributeState "chancetstorms", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_thunderstorms_15_fc.png", 			label: "Chance of Thunderstorms"
+                attributeState "clear", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_sunny_00_fc.png", 					label: "Clear"
+                attributeState "cloudy", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_cloudy_04_fc.png", 				label: "Overcast"
+                attributeState "flurries", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_flurries_11_fc.png", 				label: "Flurries"
+                attributeState "fog", 				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_fog_18_fc.png", 					label: "Foggy"
+                attributeState "hazy", 				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_fog_18_fc.png", 					label: "Hazy"
+                attributeState "mostlycloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_mostly_cloudy_03_fc.png", 			label: "Mostly Cloudy" 
+                attributeState "mostlysunny", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_partly_cloudy_02_fc.png", 			label: "Mostly Sunny"
+                attributeState "partlycloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_partly_cloudy_02_fc.png", 			label: "Partly Cloudy"
+                attributeState "partlysunny", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_mostly_cloudy_03_fc.png", 			label: "Partly Sunny"
+                attributeState "rain", 				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_rain_06_fc.png", 					label: "Rain"
+                attributeState "sleet",				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_freezing_rain_07_fc.png", 			label: "Sleet"
+                attributeState "snow", 				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_snow_10_fc.png", 					label: "Snow"
+                attributeState "sunny", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_sunny_00_fc.png", 					label: "Sunny"
+                attributeState "tstorms", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_thunderstorms_15_fc.png", 			label: "Thunderstorms"
+                attributeState "nt_chanceflurries", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 		label: "Chance of Flurries"
+                attributeState "nt_chancerain", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_drizzle_105_fc.png", 			label: "Chance of Rain"
+                attributeState "nt_chancesleet", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_freezing_rain_107_fc.png",	label: "Chance of Sleet"
+                attributeState "nt_chancesnow", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_night_snow_110_fc.png", 			label: "Chance of Snow"
+                attributeState "nt_chancetstorms", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_thunderstorms_115_fc.png",	label: "Chance of Thunderstorms"
+                attributeState "nt_clear", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_clear_night_100_fc.png", 			label: "Clear"
+                attributeState "nt_cloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_cloudy_04_fc.png", 					label: "Cloudy"
+                attributeState "nt_flurries", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 		label: "Flurries"
+                attributeState "nt_fog", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_fog_18_fc.png", 					label: "Foggy"
+                attributeState "nt_hazy", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_fog_18_fc.png", 					label: "Hazy"
+                attributeState "nt_mostlycloudy", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_mostly_cloudy_103_fc.png",	label: "Mostly Cloudy"
+                attributeState "nt_mostlysunny", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_partly_cloudy_101_fc.png",	label: "Mostly Clear Skies"
+                attributeState "nt_partlycloudy", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_partly_cloudy_101_fc.png",	label: "Partly Cloudy"
+                attributeState "nt_partlysunny", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_mostly_cloudy_103_fc.png",	label: "Partly Clear Skies"
+                attributeState "nt_flurries", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 		label: "Flurries"
+                attributeState "nt_rain", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_rain_106_fc.png", 			label: "Rain"
+                attributeState "nt_sleet", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_freezing_rain_107_fc.png",	label: "Sleet"
+                attributeState "nt_snow", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_night_snow_110_fc.png,",			label: "Snow"
+                attributeState "nt_sunny", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_clear_night_100_fc.png", 			label: "Clear Skies"
+                attributeState "nt_tstorms", 		icon:"shttps://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_thunderstorms_115_fc.png",	label: "Thunderstorms"
+                attributeState "nt_cloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_cloudy_04_fc.png", 					label: "Overcast"
             }
         }    
-/*        standardTile("weatherIcon", "device.weatherIcon", decoration: "flat", inactiveLabel: false, width: 1, height: 1) {
-            state "chanceflurries", icon:"st.custom.wu1.chanceflurries", label: ""
-            state "chancerain", icon:"st.custom.wu1.chancerain", label: ""
-            state "chancesleet", 		icon:"st.custom.wu1.chancesleet", label: ""
-            state "chancesnow", 		icon:"st.custom.wu1.chancesnow", label: ""
-            state "chancetstorms", 		icon:"st.custom.wu1.chancetstorms", label: ""
-            state "clear", 				icon:"st.custom.wu1.clear", label: ""
-            state "cloudy", 			icon:"st.custom.wu1.cloudy", label: ""
-            state "flurries", 			icon:"st.custom.wu1.flurries", label: ""
-            state "fog", 				icon:"st.custom.wu1.fog", label: ""
-            state "hazy", 				icon:"st.custom.wu1.hazy", label: ""
-            state "mostlycloudy", 		icon:"st.custom.wu1.mostlycloudy", label: ""
-            state "mostlysunny", 		icon:"st.custom.wu1.mostlysunny", label: ""
-            state "partlycloudy", 		icon:"st.custom.wu1.partlycloudy", label: ""
-            state "partlysunny", 		icon:"st.custom.wu1.partlysunny", label: ""
-            state "rain", 				icon:"st.custom.wu1.rain", label: ""
-            state "sleet",				icon:"st.custom.wu1.sleet", label: ""
-            state "snow", 				icon:"st.custom.wu1.snow", label: ""
-            state "sunny", 				icon:"st.custom.wu1.sunny", label: ""
-            state "tstorms", 			icon:"st.custom.wu1.tstorms", label: ""
-            state "cloudy", 			icon:"st.custom.wu1.cloudy", label: ""
-            state "partlycloudy", 		icon:"st.custom.wu1.partlycloudy", label: ""
-            state "nt_chanceflurries", 	icon:"st.custom.wu1.nt_chanceflurries", label: ""
-            state "nt_chancerain", 		icon:"st.custom.wu1.nt_chancerain", label: ""
-            state "nt_chancesleet", 	icon:"st.custom.wu1.nt_chancesleet", label: ""
-            state "nt_chancesnow", 		icon:"st.custom.wu1.nt_chancesnow", label: ""
-            state "nt_chancetstorms", 	icon:"st.custom.wu1.nt_chancetstorms", label: ""
-            state "nt_clear", 			icon:"st.custom.wu1.nt_clear", label: ""
-            state "nt_cloudy", 			icon:"st.custom.wu1.nt_cloudy", label: ""
-            state "nt_flurries", 		icon:"st.custom.wu1.nt_flurries", label: ""
-            state "nt_fog", 			icon:"st.custom.wu1.nt_fog", label: ""
-            state "nt_hazy", 			icon:"st.custom.wu1.nt_hazy", label: ""
-            state "nt_mostlycloudy", 	icon:"st.custom.wu1.nt_mostlycloudy", label: ""
-            state "nt_mostlysunny", 	icon:"st.custom.wu1.nt_mostlysunny", label: ""
-            state "nt_partlycloudy", 	icon:"st.custom.wu1.nt_partlycloudy", label: ""
-            state "nt_partlysunny", 	icon:"st.custom.wu1.nt_partlysunny", label: ""
-            state "nt_sleet", 			icon:"st.custom.wu1.nt_sleet", label: ""
-            state "nt_rain", 			icon:"st.custom.wu1.nt_rain", label: ""
-            state "nt_sleet", 			icon:"st.custom.wu1.nt_sleet", label: ""
-            state "nt_snow", 			icon:"st.custom.wu1.nt_snow", label: ""
-            state "nt_sunny", 			icon:"st.custom.wu1.nt_sunny", label: ""
-            state "nt_tstorms", 		icon:"st.custom.wu1.nt_tstorms", label: ""
-            state "nt_cloudy", 			icon:"st.custom.wu1.nt_cloudy", label: ""
-            state "nt_partlycloudy", 	icon:"st.custom.wu1.nt_partlycloudy", label: ""
-        }
-*/
         standardTile('moonPhase', 'device.moonPhase', decoration: 'flat', inactiveLabel: false, width: 1, height: 1) {
         	state "New", 			 label: '', icon: "https://raw.githubusercontent.com/SANdood/MeteoWeather/master/images/Lunar0.png"
             state "Waxing Crescent", label: '', icon: "https://raw.githubusercontent.com/SANdood/MeteoWeather/master/images/Lunar1.png"
@@ -636,7 +583,7 @@ def updateWundergroundTiles() {
     def obs = get("conditions")?.current_observation
     if (obs) {
     	def weatherIcon 
-    	if (state.meteoWeather?.current?.containsKey('isNight')) {
+    	if (state.meteoWeather?.current?.isNight?.isNumber()) {
         	weatherIcon = (state.meteoWeather.current?.isNight == 1) ? 'nt_' + obs.icon : obs.icon
         } else {
 			weatherIcon = obs.icon_url.split("/")[-1].split("\\.")[0]
@@ -659,9 +606,6 @@ def updateWeatherTiles() {
 //	}
     if (state.meteoWeather != [:]) {
         // log.debug "meteoWeather: ${state.meteoWeather}"
-        def now = new Date(state.meteoWeather.timestamp).format('HH:mm:ss MM/dd/yyyy',location.timeZone)
-        sendEvent(name:"lastSTupdate", value: now, displayed: false)
-        sendEvent(name:"timestamp", value: state.meteoWeather.timestamp, displayed: false)
 		String unit = getTemperatureScale()
         String h = (height_units && (height_units == 'height_in')) ? '"' : 'mm'
         
@@ -687,8 +631,13 @@ def updateWeatherTiles() {
 		if (state.meteoWeather.current != [:]) { 
         	if (state.meteoWeather.current.isDay?.isNumber() && (state.meteoWeather.current.isDay.toInteger() != device.currentValue('isDay')?.toInteger())) {
             	updateWundergroundTiles()
-                // log.debug "???? ${state.meteoWeather.current.isDay} and ${ device.currentValue('isDay')}"
-                send(name: 'isDay', value: state.meteoWeather.current.isDay.toString(), displayed: true, descriptionText: ((state.meteoWeather.current.isDay.toInteger() == 1) ? 'Daybreak' : 'Nightfall'))
+                if (state.meteoWeather.current.isDay == 1) {
+                	send(name: 'isDay', value: '1', displayed: true, descriptionText: 'Daybreak' )
+                	send(name: 'isNight', value: '0', displayed: false)
+                } else {
+					send(name: 'isDay', value: '0', displayed: true, descriptionText: 'Nightfall')
+                    send(name: 'isNight', value: '1', displayed: false)
+                }
             }
             String td = decString(state.meteoWeather.current.temperature, 2)
 			send(name: "temperature", value: td, unit: unit, descriptionText: "Temperature is ${td}°${unit}")
@@ -897,6 +846,11 @@ def updateWeatherTiles() {
                 }
             }
         }
+        
+        // update the timestamps last, after all the values have been updated
+        def now = new Date(state.meteoWeather.timestamp).format('HH:mm:ss MM/dd/yyyy',location.timeZone)
+        sendEvent(name:"lastSTupdate", value: now, displayed: false)
+        sendEvent(name:"timestamp", value: state.meteoWeather.timestamp, displayed: false)
 	}
 }
 
