@@ -25,4 +25,4 @@ Significantly, EVERYTHING that this DTH displays in Tiles is also available prog
 `v1.0.09 - Changed to use my Ecobee Suite weather icons (black circles)`<br>
 
 ## Screen Shot:
-<img src="https://raw.githubusercontent.com/SANdood/MeteoWeather/master/images/MeteoweatherStation.png" border="1" height="1200" /> 
+<img src="https://raw.githubusercontent.com/SANdood/MeteoWeather/master/images/MeteoWeatherStation.png" border="1" height="1200" /> 
