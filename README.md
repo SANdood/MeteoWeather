@@ -20,6 +20,9 @@ Significantly, EVERYTHING that this DTH displays in Tiles is also available prog
 `v1.0.04 - More tweaking to New/Full moon transitions`<br>
 `v1.0.05 - Fixed class casting errors`<br>
 `v1.0.06 - Renamed some attributes for consistency`<br>
+`v1.0.07 - Added pref setting for Lux scale`<br>
+`v1.0.08 - Increased internal attribute precision for temps & precipitation`<br>
+`v1.0.09 - Changed to use my Ecobee Suite weather icons (black circles)`<br>
 
 ## Screen Shot:
 <img src="https://raw.githubusercontent.com/SANdood/MeteoWeather/master/images/MeteoweatherStation.png" border="1" height="1200" /> 
