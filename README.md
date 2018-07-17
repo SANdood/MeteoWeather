@@ -24,5 +24,8 @@ Significantly, EVERYTHING that this DTH displays in Tiles is also available prog
 `v1.0.08 - Increased internal attribute precision for temps & precipitation`<br>
 `v1.0.09 - Changed to use my Ecobee Suite weather icons (black circles)`<br>
 
+### Donations
+As always, my contributions to the SmartThings community are entirely free, but should you feel compelled to make a donation, you can do so here: https://paypal.me/BarryABurke
+
 ## Screen Shot:
 <img src="https://raw.githubusercontent.com/SANdood/MeteoWeather/master/images/MeteoWeatherStation.png" border="1" height="1200" /> 
