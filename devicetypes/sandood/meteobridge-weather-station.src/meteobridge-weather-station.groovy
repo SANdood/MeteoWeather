@@ -10,7 +10,7 @@
 *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
 *  for the specific language governing permissions and limitations under the License.
 *
-*  SmartWeather Station
+*  Meteobridge Weather Station
 *
 *  Author: SmartThings
 *
@@ -29,12 +29,14 @@
 *	1.0.07 - Added pref setting for Lux scale
 *	1.0.08 - Increased internal attribute precision for temps & precipitation
 *	1.0.09 - Changed to use my Ecobee Suite weather icons (black circles)
+*	1.0.10 - Minor display tweaks
+*	1.0.11 - Optimized PurpleAir AQI calculations
 *
 */
 include 'asynchttp_v1'
 import groovy.json.JsonSlurper
 
-def getVersionNum() { return "1.0.09" }
+def getVersionNum() { return "1.0.11" }
 private def getVersionLabel() { return "Meteobridge Weather Station, version ${getVersionNum()}" }
 
 metadata {
@@ -185,46 +187,54 @@ metadata {
                     ])
             }
             tileAttribute("device.weatherIcon", key: "SECONDARY_CONTROL" /* decoration: "flat", inactiveLabel: false, width: 1, height: 1*/) {
-                attributeState "chanceflurries", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_flurries_11_fc.png", 				label: "Chance of Flurries"
-                attributeState "chancerain", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_drizzle_05_fc.png", 				label: "Chance of Rain"
-                attributeState "chancesleet", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_freezing_rain_07_fc.png", 			label: "Chance of Sleet"
-                attributeState "chancesnow", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_snow_10_fc.png", 					label: "Chance of Snow"
-                attributeState "chancetstorms", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_thunderstorms_15_fc.png", 			label: "Chance of Thunderstorms"
-                attributeState "clear", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_sunny_00_fc.png", 					label: "Clear"
-                attributeState "cloudy", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_cloudy_04_fc.png", 				label: "Overcast"
-                attributeState "flurries", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_flurries_11_fc.png", 				label: "Flurries"
-                attributeState "fog", 				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_fog_18_fc.png", 					label: "Foggy"
-                attributeState "hazy", 				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_fog_18_fc.png", 					label: "Hazy"
-                attributeState "mostlycloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_mostly_cloudy_03_fc.png", 			label: "Mostly Cloudy" 
-                attributeState "mostlysunny", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_partly_cloudy_02_fc.png", 			label: "Mostly Sunny"
-                attributeState "partlycloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_partly_cloudy_02_fc.png", 			label: "Partly Cloudy"
-                attributeState "partlysunny", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_mostly_cloudy_03_fc.png", 			label: "Partly Sunny"
-                attributeState "rain", 				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_rain_06_fc.png", 					label: "Rain"
-                attributeState "sleet",				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_freezing_rain_07_fc.png", 			label: "Sleet"
-                attributeState "snow", 				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_snow_10_fc.png", 					label: "Snow"
-                attributeState "sunny", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_sunny_00_fc.png", 					label: "Sunny"
-                attributeState "tstorms", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_thunderstorms_15_fc.png", 			label: "Thunderstorms"
-                attributeState "nt_chanceflurries", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 		label: "Chance of Flurries"
-                attributeState "nt_chancerain", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_drizzle_105_fc.png", 			label: "Chance of Rain"
-                attributeState "nt_chancesleet", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_freezing_rain_107_fc.png",	label: "Chance of Sleet"
-                attributeState "nt_chancesnow", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_night_snow_110_fc.png", 			label: "Chance of Snow"
-                attributeState "nt_chancetstorms", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_thunderstorms_115_fc.png",	label: "Chance of Thunderstorms"
-                attributeState "nt_clear", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_clear_night_100_fc.png", 			label: "Clear"
-                attributeState "nt_cloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_cloudy_04_fc.png", 					label: "Cloudy"
-                attributeState "nt_flurries", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 		label: "Flurries"
-                attributeState "nt_fog", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_fog_18_fc.png", 					label: "Foggy"
-                attributeState "nt_hazy", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_fog_18_fc.png", 					label: "Hazy"
-                attributeState "nt_mostlycloudy", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_mostly_cloudy_103_fc.png",	label: "Mostly Cloudy"
-                attributeState "nt_mostlysunny", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_partly_cloudy_101_fc.png",	label: "Mostly Clear Skies"
-                attributeState "nt_partlycloudy", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_partly_cloudy_101_fc.png",	label: "Partly Cloudy"
-                attributeState "nt_partlysunny", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_mostly_cloudy_103_fc.png",	label: "Partly Clear Skies"
-                attributeState "nt_flurries", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 		label: "Flurries"
-                attributeState "nt_rain", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_rain_106_fc.png", 			label: "Rain"
-                attributeState "nt_sleet", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_freezing_rain_107_fc.png",	label: "Sleet"
-                attributeState "nt_snow", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_night_snow_110_fc.png,",			label: "Snow"
-                attributeState "nt_sunny", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_clear_night_100_fc.png", 			label: "Clear Skies"
-                attributeState "nt_tstorms", 		icon:"shttps://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_thunderstorms_115_fc.png",	label: "Thunderstorms"
-                attributeState "nt_cloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_cloudy_04_fc.png", 					label: "Overcast"
+                attributeState "chanceflurries", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_flurries_11_fc.png", 					label: "Chance of Flurries"
+                attributeState "chancerain", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_drizzle_05_fc.png", 					label: "Chance of Rain"
+                attributeState "chancesleet", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_freezing_rain_07_fc.png", 				label: "Chance of Sleet"
+                attributeState "chancesnow", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_snow_10_fc.png", 						label: "Chance of Snow"
+                attributeState "chancetstorms", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_thunderstorms_15_fc.png", 				label: "Chance of Thunderstorms"
+                attributeState "clear", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_sunny_00_fc.png", 						label: "Clear"
+                attributeState "sunny", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_sunny_00_fc.png", 						label: "Sunny"
+                attributeState "cloudy", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_cloudy_04_fc.png", 					label: "Overcast"
+                attributeState "flurries", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_flurries_11_fc.png", 					label: "Flurries"
+                attributeState "fog", 				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_fog_18_fc.png", 						label: "Foggy"
+                attributeState "hazy", 				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_fog_18_fc.png", 						label: "Hazy"
+                attributeState "mostlycloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_mostly_cloudy_03_fc.png", 				label: "Mostly Cloudy" 
+                attributeState "mostlysunny", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_partly_cloudy_02_fc.png", 				label: "Mostly Sunny"
+                attributeState "partlycloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_partly_cloudy_02_fc.png", 				label: "Partly Cloudy"
+                attributeState "partlysunny", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_mostly_cloudy_03_fc.png", 				label: "Partly Sunny"
+                attributeState "rain", 				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_rain_06_fc.png", 						label: "Rain"
+                attributeState "sleet",				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_freezing_rain_07_fc.png", 				label: "Sleet"
+                attributeState "snow", 				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_snow_10_fc.png", 						label: "Snow"
+                attributeState "tstorms", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_thunderstorms_15_fc.png", 				label: "Thunderstorms"
+                attributeState "thunderstorm", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_thunderstorms_15_fc.png", 				label: "Thunderstorm"
+                attributeState "windy",				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Windy"
+                attributeState "tornado",			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_tornado_17_fc.png",						label: "Tornado"
+                attributeState "hail",				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_flurries_11_fc.png",					label: "Hail"
+                attributeState "nt_chanceflurries", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 			label: "Chance of Flurries"
+                attributeState "nt_chancerain", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_drizzle_105_fc.png", 				label: "Chance of Rain"
+                attributeState "nt_chancesleet", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_freezing_rain_107_fc.png",		label: "Chance of Sleet"
+                attributeState "nt_chancesnow", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_night_snow_110_fc.png", 				label: "Chance of Snow"
+                attributeState "nt_chancetstorms", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_thunderstorms_115_fc.png",		label: "Chance of Thunderstorms"
+                attributeState "nt_clear", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_clear_night_100_fc.png", 				label: "Clear"
+                attributeState "nt_sunny", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_clear_night_100_fc.png", 				label: "Clear"
+                attributeState "nt_cloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_cloudy_04_fc.png", 						label: "Cloudy"
+                attributeState "nt_flurries", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 			label: "Flurries"
+                attributeState "nt_fog", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_fog_18_fc.png", 						label: "Foggy"
+                attributeState "nt_hazy", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_fog_18_fc.png", 						label: "Hazy"
+                attributeState "nt_mostlycloudy", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_mostly_cloudy_103_fc.png",		label: "Mostly Cloudy"
+                attributeState "nt_mostlysunny", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_partly_cloudy_101_fc.png",		label: "Mostly Clear"
+                attributeState "nt_partlycloudy", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_partly_cloudy_101_fc.png",		label: "Partly Cloudy"
+                attributeState "nt_partlysunny", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_mostly_cloudy_103_fc.png",		label: "Partly Clear"
+                attributeState "nt_flurries", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 			label: "Flurries"
+                attributeState "nt_rain", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_rain_106_fc.png", 				label: "Rain"
+                attributeState "nt_sleet", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_freezing_rain_107_fc.png",		label: "Sleet"
+                attributeState "nt_snow", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_night_snow_110_fc.png,",				label: "Snow"
+                attributeState "nt_tstorms", 		icon:"shttps://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_thunderstorms_115_fc.png",		label: "Thunderstorms"
+                attributeState "nt_thunderstorm", 	icon:"shttps://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_thunderstorms_115_fc.png",		label: "Thunderstorm"
+                attributeState "nt_cloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_cloudy_04_fc.png", 						label: "Overcast"
+                attributeState "nt_windy",			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Windy"
+                attributeState "nt_tornado",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_tornado_17_fc.png",						label: "Tornado"
+                attributeState "nt_hail",			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png",				label: "Hail"
             }
         }    
         standardTile('moonPhase', 'device.moonPhase', decoration: 'flat', inactiveLabel: false, width: 1, height: 1) {
@@ -333,7 +343,7 @@ metadata {
             state "default", label:'Daylight\n${currentValue}'
         }
         valueTile("light", "device.illuminance", inactiveLabel: false, width: 1, height: 1, decoration: "flat", wordWrap: true) {
-            state "default", label:'Illum\n${currentValue}\nlx'
+            state "default", label:'Illum\n${currentValue}\nlux'
         }
         valueTile("evo", "device.etDisplay", inactiveLabel: false, width: 1, height: 1, decoration: "flat", wordWrap: true) {
             state "default", label:'ET\n${currentValue}\nper hr'
@@ -362,15 +372,15 @@ metadata {
         	state 'default', label: 'AQI\n${currentValue}',
             	backgroundColors: [
                 	[value:   0, color: '#44b621'],		// Green - Good
-                    [value:  50, color: '#44b621'],
+                   // [value:  50, color: '#44b621'],
                     [value:  51, color: '#f1d801'],		// Yellow - Moderate
-                    [value: 100, color: '#f1d801'],
+                   // [value: 100, color: '#f1d801'],
                     [value: 101, color: '#d04e00'],		// Orange - Unhealthy for Sensitive groups
-                    [value: 150, color: '#d04e00'],
+                   // [value: 150, color: '#d04e00'],
                     [value: 151, color: '#bc2323'],		// Red - Unhealthy
-                    [value: 200, color: '#bc2323'],
+                   // [value: 200, color: '#bc2323'],
                     [value: 201, color: '#800080'],		// Purple - Very Unhealthy
-                    [value: 300, color: '#800080'],
+                  //  [value: 300, color: '#800080'],
                     [value: 301, color: '#800000']		// Maroon - Hazardous
                     //[value: 301, color: '#ff2c14']
                 ]
@@ -650,7 +660,7 @@ def updateWeatherTiles() {
             t = decString(state.meteoWeather.current.heatIndex, 2)
 			send(name: "heatIndex", value:t , unit: unit, descriptionText: "Heat Index is ${t}°${unit}")
 			t = decString(state.meteoWeather.current.dewpoint, 2)
-            send(name: "dewpoint", value: t , unit: unit, descriptionText: "Dewpoint is ${t}°${unit}")
+            send(name: "dewpoint", value: t , unit: unit, descriptionText: "Dew Point is ${t}°${unit}")
 			t = decString(state.meteoWeather.current.windChill, 2)
             send(name: "windChill", value: t, unit: unit, descriptionText: "Wind Chill is ${t}°${unit}")
             
@@ -780,7 +790,7 @@ def updateWeatherTiles() {
             
          // Lux estimator
             def lux = estimateLux()
-			send(name: "illuminance", value: lux, unit: 'lx', descriptionText: "Lux is ${lux} (est)")
+			send(name: "illuminance", value: lux, unit: 'lux', descriptionText: "Illumination is ${lux} lux (est)")
             
     	// Forecast
     		if (state.meteoWeather.forecast?.text != null) {
@@ -977,7 +987,6 @@ void getPurpleAirAQI() {
         send(name: 'aqi', value: null, displayed: false)
         return
     }
-    log.info "getPurpleAirAQI()"
     def params = [
         uri: 'https://www.purpleair.com',
         path: '/json',
@@ -987,32 +996,85 @@ void getPurpleAirAQI() {
     asynchttp_v1.get(purpleAirResponse, params)
 }
 
-def purpleAirResponse(response, data) {
-	try {
-        // log.debug "Purple Air json response is: $response.json"
-        send(name: 'purpleAir', value: response.json, displayed: false)
-        def stats = [:]
-        if (response.json.results[0]?.Stats) stats[0] = new JsonSlurper().parseText(response.json.results[0].Stats)
-        if (stats[0]?.timeSinceModified?.isNumber() && (stats[0].timeSinceModified < 660000 )) {
-        	if (response.json.results[1]?.Stats) stats[1] = new JsonSlurper().parseText(response.json.results[1].Stats) 
-            if (stats[1]?.timeSinceModified?.isNumber() && (stats[1].timeSinceModified < 660000 )) {
-            	// log.debug stats
-                Float pm = (response.json.results[0]?.PM2_5Value?.toFloat() + response.json.results[1]?.PM2_5Value?.toFloat()) / 2.0
-                String aqi = Math.round(pm_to_aqi(pm)).toString() // decString(pm_to_aqi(pm), 1)
-                send(name: 'airQualityIndex', value: aqi, descriptionText: "Air Quality Index is ${aqi}")
-                send(name: 'aqi', value: aqi, displayed: false)
-                return
-            } else {
-               	log.warn "Purple Air sensor ${response.json.results[1].ID} at ${response.json.results[1].Label} returned stale data (${stats[1].timeSinceModified.toInteger() / 1000} seconds old)"
+def purpleAirResponse(resp, data) {
+	if (resp && (resp.status == 200)) {
+		try {
+			if (resp.json) {
+				//log.trace "Response: ${resp.json}"
+                // log.info "Good data..."
+			} else {
+            	// FAIL - no data
+                log.warn "purpleAirResponse() no JSON: ${resp.data}"
+                return false
             }
-        } else {
-            log.warn "Purple Air sensor ${response.json.results[0].ID} at ${response.json.results[0].Label} returned stale data (${stats[0].timeSinceModified.toInteger() / 1000} seconds old)"
-        }
-        send(name: 'airQualityIndex', value: 'n/a', descriptionText: "Purple Air sensor ${settings.purpleID} appears to be offline")
-        send(name: 'aqi', value: 'n/a', displayed: false)
-    } catch (e) {
-        log.error("Exception during Purple Air response processing", e)
+		} catch (Exception e) {
+			log.error "purpleAirResponse() - General Exception: ${e}"
+        	throw e
+            return false
+        } 
+        parsePurpleAir(resp.json)
+        return true
     }
+    return false
+}
+def parsePurpleAir(response) {
+    send(name: 'purpleAir', value: response, displayed: false)
+    def stats = [:]
+    if (response.results[0]?.Stats) stats[0] = new JsonSlurper().parseText(response.results[0].Stats)
+    if (response.results[1]?.Stats) stats[1] = new JsonSlurper().parseText(response.results[1].Stats)
+   	
+    // Figure out if we have both Channels, or only 1
+    def single = null
+	if (response.results[0].A_H) {
+        if (response.results[1].A_H) {
+        	// A bad, B bad
+            single = -1
+        } else {
+        	// A bad, B good
+        	single = 1
+        }
+    } else {
+    	// Channel A is good
+    	if (response.results[1].A_H) {
+        	// A good, B bad
+        	single = 0
+        } else {
+        	// A good, B good
+            single = 2
+        }
+    }
+    Long newest = null
+    if (single == 2) {
+    	newest = ((stats[0]?.lastModified?.toLong() > stats[1]?.lastModified?.toLong()) ? stats[0].lastModified.toLong() : stats[1].lastModified.toLong())
+    } else if (single >= 0) {
+    	newest = stats[single]?.lastModified?.toLong()
+    }
+	// check age of the data
+    Long age = now() - (newest?:1000)
+    Float pm = null
+    String aqi = null
+    if (age <=  300000) {
+    	if (single >= 0) {
+    		if (single == 2) {
+    			pm = (response.results[0]?.PM2_5Value?.toFloat() + response.results[1]?.PM2_5Value?.toFloat()) / 2.0
+    		} else if (single >= 0) {
+    			pm = response.results[single].PM2_5Value?.toFloat()
+    		}
+    		aqi = Math.round(pm_to_aqi(pm)).toString()
+        } else {
+        	aqi = 'n/a'
+        	log.warn 'parsePurpleAir() - Bad data...'
+        }
+    } else {
+    	aqi = null
+        log.warn 'parsePurpleAir() - Old data...'
+    }
+    if (aqi) {
+    	log.info "AQI: ${aqi}"
+    	send(name: 'airQualityIndex', value: aqi, descriptionText: "Air Quality Index is ${aqi}")
+    	send(name: 'aqi', value: aqi, displayed: false)
+    }
+    return
 }
 
 private Float pm_to_aqi(pm) {
