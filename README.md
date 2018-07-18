@@ -14,15 +14,19 @@ Significantly, EVERYTHING that this DTH displays in Tiles is also available prog
 **Warning:** *If you try to convert this code to support a Meteobridge on an external IP, you will have to accomodate any differences between the Timezone of your Hub and the Meteobridge, otherwise several values will be inaccurate.*
 
 ## Change Log:
-`v1.0.01 - Adds support for Purple Air air quality sensors, via asyncHttp (does not use local hubAction)`<br>
-`v1.0.02 - Fixes an issue with the display of New & Full Moon`<br>
-`v1.0.03 - Cleanup of preferences page`<br>
-`v1.0.04 - More tweaking to New/Full moon transitions`<br>
-`v1.0.05 - Fixed class casting errors`<br>
-`v1.0.06 - Renamed some attributes for consistency`<br>
-`v1.0.07 - Added pref setting for Lux scale`<br>
-`v1.0.08 - Increased internal attribute precision for temps & precipitation`<br>
-`v1.0.09 - Changed to use my Ecobee Suite weather icons (black circles)`<br>
+*	1.0.00 - Initial Release
+*	1.0.01 - Added PurpleAir Air Quality Index (AQI)
+*	1.0.02 - Fixed New/Full moon dislays
+*	1.0.03 - Cleanup of Preferences page
+*	1.0.04 - More tweaking to New/Full moon transitions
+*	1.0.05 - Fixed class casting errors
+*	1.0.06 - Renamed some attributes for naming consistency
+*	1.0.07 - Added pref setting for Lux scale
+*	1.0.08 - Increased internal attribute precision for temps & precipitation
+*	1.0.09 - Changed to use my Ecobee Suite weather icons (black circles)
+*	1.0.10 - Minor display tweaks
+*	1.0.11 - Optimized PurpleAir AQI calculations
+*	1.0.12 - Converted to BigDecimal for maximum precision
 
 ### Donations
 As always, my contributions to the SmartThings community are entirely free, but should you feel compelled to make a donation, you can do so here: https://paypal.me/BarryABurke
