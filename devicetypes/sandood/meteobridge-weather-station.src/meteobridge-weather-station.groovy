@@ -31,12 +31,14 @@
 *	1.0.09 - Changed to use my Ecobee Suite weather icons (black circles)
 *	1.0.10 - Minor display tweaks
 *	1.0.11 - Optimized PurpleAir AQI calculations
+*	1.0.12 - Converted to BigDecimal for maximum precision
 *
 */
 include 'asynchttp_v1'
 import groovy.json.JsonSlurper
+import java.math.BigDecimal
 
-def getVersionNum() { return "1.0.11" }
+def getVersionNum() { return "1.0.12" }
 private def getVersionLabel() { return "Meteobridge Weather Station, version ${getVersionNum()}" }
 
 metadata {
@@ -372,21 +374,20 @@ metadata {
         	state 'default', label: 'AQI\n${currentValue}',
             	backgroundColors: [
                 	[value:   0, color: '#44b621'],		// Green - Good
-                   // [value:  50, color: '#44b621'],
+                    [value:  50, color: '#44b621'],
                     [value:  51, color: '#f1d801'],		// Yellow - Moderate
-                   // [value: 100, color: '#f1d801'],
+                    [value: 100, color: '#f1d801'],
                     [value: 101, color: '#d04e00'],		// Orange - Unhealthy for Sensitive groups
-                   // [value: 150, color: '#d04e00'],
+                    [value: 150, color: '#d04e00'],
                     [value: 151, color: '#bc2323'],		// Red - Unhealthy
-                   // [value: 200, color: '#bc2323'],
+                    [value: 200, color: '#bc2323'],
                     [value: 201, color: '#800080'],		// Purple - Very Unhealthy
-                  //  [value: 300, color: '#800080'],
+                    [value: 300, color: '#800080'],
                     [value: 301, color: '#800000']		// Maroon - Hazardous
-                    //[value: 301, color: '#ff2c14']
                 ]
         }
         valueTile("temperature2", "device.temperature", width: 1, height: 1, canChangeIcon: true) {
-            state "temperature", label: '${currentValue}°',
+            state "temperature", label: '${currentValue}°', icon: 'st.Weather.weather2',
 				backgroundColors:[
 		            [value: 31, color: "#153591"],
 		            [value: 44, color: "#1e9cbb"],
@@ -607,13 +608,6 @@ def updateWundergroundTiles() {
 
 // This updates the tiles with Meteobridge data
 def updateWeatherTiles() {
-//    def obs = get("conditions")?.current_observation
-//    if (obs) {
-//		def weatherIcon = obs.icon_url.split("/")[-1].split("\\.")[0]
-//		send(name: "weather", value: obs.weather)
-//		send(name: "weatherIcon", value: weatherIcon, displayed: false)
-//        send(name: "iconErr", value: null)
-//	}
     if (state.meteoWeather != [:]) {
         // log.debug "meteoWeather: ${state.meteoWeather}"
 		String unit = getTemperatureScale()
@@ -621,16 +615,16 @@ def updateWeatherTiles() {
         
         // Yesterday data
         if (state.meteoWeather.yesterday) {
-        	String t = decString(state.meteoWeather.yesterday.highTemp, 2)
+        	def t = roundIt(state.meteoWeather.yesterday.highTemp, 2)
         	send(name: 'highTempYesterday', value: t, unit: unit, descriptionText: "High Temperature yesterday was ${t}°${unit}")
-            t = decString(state.meteoWeather.yesterday.lowTemp, 2)
+            t = roundIt(state.meteoWeather.yesterday.lowTemp, 2)
             send(name: 'lowTempYesterday', value: t, unit: unit, descriptionText: "Low Temperature yesterday was ${t}°${unit}")
-            String hum = intString(state.meteoWeather.yesterday.highHum)
+            def hum = roundIt(state.meteoWeather.yesterday.highHum, 0)
             send(name: 'highHumYesterday', value: hum, unit: "%", descriptionText: "High Humidity yesterday was ${hum}%")
-            hum = intString(state.meteoWeather.yesterday.lowHum)
+            hum = roundIt(state.meteoWeather.yesterday.lowHum, 0)
             send(name: 'lowHumYesterday', value: hum, unit: "%", descriptionText: "Low Humidity yesterday was ${hum}%")
-            String ryd = decString(state.meteoWeather.yesterday.rainfall, 3)
-            String rydd = decString(state.meteoWeather.yesterday.rainfall, 2)
+            def ryd = roundIt(state.meteoWeather.yesterday.rainfall, 3)
+            def rydd = roundIt(state.meteoWeather.yesterday.rainfall, 2)
             if (ryd != '--') {
 				send(name: 'precipYesterday', value: ryd, unit: "${h}", descriptionText: "Precipitation yesterday was ${ryd}${h}")
                 send(name: 'precipYesterdayDisplay', value: "${rydd}${h}", displayed: false)
@@ -649,32 +643,32 @@ def updateWeatherTiles() {
                     send(name: 'isNight', value: '1', displayed: false)
                 }
             }
-            String td = decString(state.meteoWeather.current.temperature, 2)
+            def td = roundIt(state.meteoWeather.current.temperature, 2)
 			send(name: "temperature", value: td, unit: unit, descriptionText: "Temperature is ${td}°${unit}")
-            td = decString(state.meteoWeather.current.temperature, 1)
+            td = roundIt(state.meteoWeather.current.temperature, 1)
             send(name: "temperatureDisplay", value: td + '°', unit: unit, displayed: false, descriptionText: "Temperature is ${td}°${unit}")
-            String t = decString(state.meteoWeather.current.highTemp, 2)
+            def t = roundIt(state.meteoWeather.current.highTemp, 2)
             send(name: "highTemp", value: t, unit: unit, descriptionText: "High Temperature so far today is ${t}°${unit}")
-            t = decString(state.meteoWeather.current.lowTemp, 2)
+            t = roundIt(state.meteoWeather.current.lowTemp, 2)
             send(name: "lowTemp", value: t , unit: unit, descriptionText: "Low Temperature so far today is ${t}°${unit}")
-            t = decString(state.meteoWeather.current.heatIndex, 2)
+            t = roundIt(state.meteoWeather.current.heatIndex, 2)
 			send(name: "heatIndex", value:t , unit: unit, descriptionText: "Heat Index is ${t}°${unit}")
-			t = decString(state.meteoWeather.current.dewpoint, 2)
+			t = roundIt(state.meteoWeather.current.dewpoint, 2)
             send(name: "dewpoint", value: t , unit: unit, descriptionText: "Dew Point is ${t}°${unit}")
-			t = decString(state.meteoWeather.current.windChill, 2)
+			t = roundIt(state.meteoWeather.current.windChill, 2)
             send(name: "windChill", value: t, unit: unit, descriptionText: "Wind Chill is ${t}°${unit}")
             
-            String hum = intString(state.meteoWeather.current.humidity)
+            def hum = roundIt(state.meteoWeather.current.humidity, 0)
 			send(name: "humidity", value: hum, unit: "%", descriptionText: "Humidity is ${hum}%")
-            hum = intString(state.meteoWeather.current.highHum)
+            hum = roundIt(state.meteoWeather.current.highHum, 0)
             send(name: "highHumidity", value: hum, unit: "%", descriptionText: "High Humidity so far today is ${hum}%")
-            hum = intString(state.meteoWeather.current.lowHum)
+            hum = roundIt(state.meteoWeather.current.lowHum, 0)
             send(name: "lowHumidity", value: hum, unit: "%", descriptionText: "Low Humidity so far today is ${hum}%")
-            def uv = decString(state.meteoWeather.current.uvIndex,1)
+            def uv = roundIt(state.meteoWeather.current.uvIndex, 1)
             send(name: "uvIndex", value: "${uv}", descriptionText: "UV Index is ${uv}" )
            
             if (state.meteoWeather.current.solarRadiation != null) {
-            	def val = Math.round(state.meteoWeather.current.solarRadiation.toFloat())
+            	def val = roundIt(state.meteoWeather.current.solarRadiation, 0)
 				send(name: "solarRadiation", value: val, unit: 'W/m²', descriptionText: "Solar radiation is ${val} W/m²")
             } else {
             	send(name: "solarRadiation", value: '--', displayed: false)
@@ -703,39 +697,39 @@ def updateWeatherTiles() {
 					pressure_trend_text = " "
 			}
 			def pv = (pres_units && (pres_units == 'press_in')) ? 'inHg' : 'mmHg'
-            def pr = decString(state.meteoWeather.current.pressure, 2)
+            def pr = roundIt(state.meteoWeather.current.pressure, 2)
             send(name: 'pressure', value: pr, unit: pv, displayed: false, descriptionText: "Barometric Pressure is ${pr} ${pv}")
 			send(name: 'pressureDisplay', value: "${pr}\n${pv}\n${pressure_trend_text}", descriptionText: "Barometric Pressure is ${pr} ${pv} - ${pressure_trend_text}")
             send(name: 'pressureTrend', value: pressure_trend_text, displayed: false, descriptionText: "Barometric Pressure trend is ${pressure_trend_text}")
        
 		// Rain Rate, Rain Today, Rain Last Hour
-        	String rlh = decString(state.meteoWeather.current.rainLastHour, 3)
-            String rlhd = decString(state.meteoWeather.current.rainLastHour, 2)
+        	def rlh = roundIt(state.meteoWeather.current.rainLastHour, 3)
+            def rlhd = roundIt(state.meteoWeather.current.rainLastHour, 2)
             if (rlh != '--') {
 				send(name: 'precipLastHourDisplay', value: "${rlhd}${h}", displayed: false)
             	send(name: 'precipLastHour', value: rlh, unit: "${h}", descriptionText: "Precipitation in the Last Hour was ${rlh}${h}")
             } else send(name: 'precipLastHourDisplay', value: rlh, displayed: false)
             
-            String rtd = decString(state.meteoWeather.current.rainfall, 3)
-            String rtdd = decString(state.meteoWeather.current.rainfall, 2)
+            def rtd = roundIt(state.meteoWeather.current.rainfall, 3)
+            def rtdd = roundIt(state.meteoWeather.current.rainfall, 2)
 			if (rtd != '--') {
             	send(name: 'precipTodayDisplay', value:  "${rtdd}${h}", displayed: false)
             	send(name: 'precipToday', value: rtd, unit: "${h}", descriptionText: "Precipitation so far today is ${rtd}${h}")
             } else send(name: 'precipTodayDisplay', value:  rtd, displayed: false)
             
-            String rrt = decString(state.meteoWeather.current.rainRate, 2)
+            def rrt = roundIt(state.meteoWeather.current.rainRate, 2)
             if (rrt != '--') {
             	send(name: 'precipRateDisplay', value:  "${rrt}${h}", displayed: false)
             	send(name: 'precipRate', value: rrt, unit: "${h}/hr", descriptionText: "Precipitation rate is ${rrt}${h}/hour")
             } else send(name: 'precipRateDisplay', value:  rrt, displayed: false)
             
-			if (state.meteoWeather.current.rainLastHour?.isNumber() && (state.meteoWeather.current.rainLastHour.toFloat() > 0)) {
+			if (state.meteoWeather.current.rainLastHour?.isNumber() && (state.meteoWeather.current.rainLastHour.toBigDecimal() > 0)) {
 				sendEvent( name: 'water', value: "wet" )
 			} else {
 				sendEvent( name: 'water', value: "dry" )
 			}
             
-            String et = decString(state.meteoWeather.current.evapotranspiration, 3)
+            def et = roundIt(state.meteoWeather.current.evapotranspiration, 3)
             // log.debug "ET: ${et}"
             if (et != '--') {
             	send(name: "evapotranspiration", value: et, unit: "${h}", descriptionText: "Evapotranspiration rate is ${et}${h}/hour")
@@ -841,8 +835,7 @@ def updateWeatherTiles() {
             if (state.meteoWeather.current.lunarPercent?.isNumber()) {
             	String lpct = state.meteoWeather.current.lunarPercent.toString()
             	send(name: 'lunarPercent', value: lpct, displayed: true, unit: '%', descriptionText: "The Moon is ${lpct}% lit")
-                String pcnt = /* (phase == 'New') ? '000' : ((phase == 'Full') ? '100' : */( sprintf('%03d', (Math.round(lpct.toFloat() / 5.0) * 5).toInteger()))
-                // pcnt = (Math.round(pcnt / 5) * 5) as Integer
+                String pcnt = sprintf('%03d', (Math.round(lpct.toFloat() / 5.0) * 5).toInteger())
                 String pname = 'Moon-wa' + xn + 'ing-' + pcnt
                 // log.debug "Lunar Percent by 5s: ${pcnt} - ${pname}"
                 send(name: 'moonPercent', value: pcnt, displayed: false, unit: '%')
@@ -863,7 +856,6 @@ def updateWeatherTiles() {
         sendEvent(name:"timestamp", value: state.meteoWeather.timestamp, displayed: false)
 	}
 }
-
 private updateMeteoTime(timeStr, stateName) {
 	def t = timeToday(timeStr, location.timeZone).getTime()
 	def tAPM = new Date(t).format('h:mm a', location.timeZone).toLowerCase()
@@ -871,37 +863,28 @@ private updateMeteoTime(timeStr, stateName) {
     send(name: stateName + 'APM', value: tAPM, descriptionText: stateName.capitalize() + ' at ' + tAPM)
     send(name: stateName + 'Epoch', value: t, displayed: false)
 }
-
 private clearMeteoTime(stateName) {
 	send(name: stateName, value: "", displayed: false)
     send(name: stateName + 'APM', value: "", descriptionText: 'No ' + stateName + 'today')
     send(name: stateName + 'Epoch', value: null, displayed: false)
 }
-
 private get(feature) {
     getWeatherFeature(feature, zipCode)
 }
-
 private localDate(timeZone) {
     def df = new java.text.SimpleDateFormat("yyyy-MM-dd")
     df.setTimeZone(TimeZone.getTimeZone(timeZone))
     df.format(new Date())
 }
-
 private send(map) {
     sendEvent(map)
 }
-
 String getWeatherText() {
 	return device?.currentValue('weather')
 }
-private String decString( value, decimals ) {
-	return (value == null) ? '--' : String.format("%.${decimals}f", value.toFloat().round(decimals))
+private roundIt( value, decimals=0 ) {
+	return (value == null) ? '--' : value.toBigDecimal().setScale(decimals, BigDecimal.ROUND_HALF_UP) 
 }
-private String intString( value ) {
-	return (value == null) ? '--' : Math.round(value.toFloat())
-}
-
 private estimateLux() {
 	// If we have it, use solarRadiation as a proxy for Lux 
 	if (state.meteoWeather?.current?.solarRadiation?.isNumber()){
@@ -909,19 +892,19 @@ private estimateLux() {
     	switch (settings.lux_scale) {
         	case 'std':
             	// 0-10,000 - SmartThings Weather Tile scale
-                lux = (state.meteoWeather.current.isNight > 0) ? 10 : Math.round((state.meteoWeather.current.solarRadiation / 0.225) * 10.0)	// Hack to approximate SmartThings Weather Station
+                lux = (state.meteoWeather.current.isNight > 0) ? 10 : roundIt(((state.meteoWeather.current.solarRadiation / 0.225) * 10.0), 0)	// Hack to approximate SmartThings Weather Station
         		return (lux < 10) ? 10 : ((lux > 10000) ? 10000 : lux)
     			break;
                 
         	case 'real':
             	// 0-100,000 - realistic estimated conversion from SolarRadiation
-                lux = (state.meteoWeather.current.isNight > 0) ? 10 : Math.round(state.meteoWeather.current.solarRations / 0.0079)		// Hack approximation of Davis w/m^2 to lx
+                lux = (state.meteoWeather.current.isNight > 0) ? 10 : roundIt((state.meteoWeather.current.solarRadiation / 0.0079), 0)		// Hack approximation of Davis w/m^2 to lx
                 return (lux< 10) ? 10 : ((lux > 100000) ? 100000 : lux)
                 break;
                 
             case 'default':
             default:
-            	lux = (state.meteoWeather.current.isNight > 0) ? 10 : Math.round(state.meteoWeather.current.solarRadiation / 0.225)	// Hack to approximate Aeon multi-sensor values
+            	lux = (state.meteoWeather.current.isNight > 0) ? 10 : roundIt((state.meteoWeather.current.solarRadiation / 0.225), 0)	// Hack to approximate Aeon multi-sensor values
         		return (lux < 10) ? 10 : ((lux > 1000) ? 1000 : lux)
                 break;
         }
@@ -953,16 +936,16 @@ private estimateLux() {
         }
 
         //adjust for dusk/dawn
-        Float afterSunrise = now - device.currentValue('sunriseEpoch')
-        Float beforeSunset = device.currentValue('sunsetEpoch') - now
-        Float oneHour = 1000 * 60 * 60
+        def afterSunrise = now - device.currentValue('sunriseEpoch')
+        def beforeSunset = device.currentValue('sunsetEpoch') - now
+        def oneHour = 1000 * 60 * 60
 
         if(afterSunrise < oneHour) {
             //dawn
-            lux = Math.round(lux * (afterSunrise/oneHour))
+            lux = roundIt((lux * (afterSunrise/oneHour)), 0)
         } else if (beforeSunset < oneHour) {
             //dusk
-            lux = Math.round(lux * (beforeSunset/oneHour))
+            lux = roundIt((lux * (beforeSunset/oneHour)), 0)
         }
         
         // Now, adjust the scale based on the settings
@@ -1051,16 +1034,16 @@ def parsePurpleAir(response) {
     }
 	// check age of the data
     Long age = now() - (newest?:1000)
-    Float pm = null
+    def pm = null
     String aqi = null
     if (age <=  300000) {
     	if (single >= 0) {
     		if (single == 2) {
-    			pm = (response.results[0]?.PM2_5Value?.toFloat() + response.results[1]?.PM2_5Value?.toFloat()) / 2.0
+    			pm = (response.results[0]?.PM2_5Value?.toBigDecimal() + response.results[1]?.PM2_5Value?.toBigDecimal()) / 2.0
     		} else if (single >= 0) {
-    			pm = response.results[single].PM2_5Value?.toFloat()
+    			pm = response.results[single].PM2_5Value?.toBigDecimal()
     		}
-    		aqi = Math.round(pm_to_aqi(pm)).toString()
+    		aqi = roundIt((pm_to_aqi(pm)), 1)
         } else {
         	aqi = 'n/a'
         	log.warn 'parsePurpleAir() - Bad data...'
@@ -1077,7 +1060,7 @@ def parsePurpleAir(response) {
     return
 }
 
-private Float pm_to_aqi(pm) {
+private def pm_to_aqi(pm) {
 	def aqi
 	if (pm > 500) {
 	  aqi = 500;
@@ -1098,7 +1081,6 @@ private Float pm_to_aqi(pm) {
 	}
 	return aqi;
 }
-
 private def remap(value, fromLow, fromHigh, toLow, toHigh) {
     def fromRange = fromHigh - fromLow;
     def toRange = toHigh - toLow;
@@ -1111,12 +1093,10 @@ private def remap(value, fromLow, fromHigh, toLow, toHigh) {
     // Re-zero back to the to range
     return tmpValue + toLow;
 }
-
 String getMeteoSensorID() {
     def version = state.meteoWeather?.version?.isNumber() ? state.meteoWeather.version : 1.0
     return ( version > 3.6 ) ? '*' : '0'
 }
-
 def getForecastTemplate() {
 	return '"forecast":{"text":"[forecast-text:]","code":[forecast-rule]},"version":[mbsystem-swversion:1.0],'
 }
@@ -1124,11 +1104,6 @@ def getYesterdayTemplate() {
 	String s = getTemperatureScale() 
 	String d = getMeteoSensorID() 
     return "\"yesterday\":{\"highTemp\":[th${d}temp-ydmax=${s}.2:null],\"lowTemp\":[th${d}temp-ydmin=${s}.2:null],\"highHum\":[th${d}hum-ydmax=.2:null],\"lowHum\":[th${d}hum-ydmin=.2:null]," + yesterdayRainfall + '},'
-	//if (getTemperatureScale() != "C") {
-	//	return '"yesterday":{"highTemp":[th0temp-ydmax=F.2:null],"lowTemp":[th0temp-ydmin=F.2:null],"highHum":[th0hum-ydmax=.2:null],"lowHum":[th0hum-ydmin=.2:null],' + yesterdayRainfall + '},'
-	//} else {
-	//	return '"yesterday":{"highTemp":[th0temp-ydmax=C.2:null],"lowTemp":[th0temp-ydmin=C.2:null],"highHum":[th0hum-ydmax=.2:null],"lowHum":[th0hum-ydmin=.2:null],' + yesterdayRainfall + '},'
-	//}
 }
 def getCurrentTemplate() {
 	String d = getMeteoSensorID()
@@ -1138,10 +1113,6 @@ def getCurrentTemplate() {
             "\"solarRadiation\":[sol${d}rad-act:null],\"lunarAge\":[mbsystem-lunarage:],\"lunarPercent\":[mbsystem-lunarpercent:],\"lunarSegment\":[mbsystem-lunarsegment:null]," +
             '"moonrise":"[mbsystem-moonrise:]","moonset":"[mbsystem-moonset:]","isDay":[mbsystem-isday=.0],"isNight":[mbsystem-isnight=.0]}}'
 }
-
-// #if{*[mbsystem-swversion:1.0]>=3.6*}#then#outdoor temp: [th*temp-act:--]°C#else#outdoor temp: [th0temp-act:--]°C#fi#
-// #if{*[mbsystem-swversion:1.0]>=3.6*}#then#[th*temp-act=${s}.2:null]#else#[th0temp-act
-
 def getTemperatureTemplate() { 
 	String s = getTemperatureScale() 
     String d = getMeteoSensorID() 
