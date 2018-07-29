@@ -9,6 +9,11 @@ This device also (optionally) calculates and displays Purple Air Air Quality Ind
 
 Significantly, EVERYTHING that this DTH displays in Tiles is also available programmatically to other SmartApps and WebCore pistons. You can thus build apps and integrations based off of changes in any attribute, from temperature and humidity to air quality, lunar phase, wind speed and the like. If interested, have a look at the `attributes` listed at the top of the source file for the names of the available data points.
 
+### New Features 29 July 2018
+MeteoWeather now displays forecast details (hi/low temps & humidity, plus rainfall forecast) for the rest of today and tomorrow, along with historical data for yesterday. This data is sourced from Weather Underground via the built-in SmartThings integration, or (optionally) from  Dark Sky, if you have a Dark Sky api key. Open the preferences to configure these new options.
+
+Also, you can choose the source for the daily forecast text (above sun/moon rise/set info). The default is to use whatever Meteobridge returns, but for non-Davis weather stations, this can be blank. Preferences options allow you to select the Weather Underground daily forecast, or the Dark Sky forecast (if Dark Sky is configured).
+
 **Note:** since this uses `hubAction()` for the Meteobridge data, it will work only when your SmartThings hub and Meteobridge server are on the same (local) IP network. This approach keeps your password safe(r), but doesn't handle remote IP addresses. On the plus side, it is pretty lightweight to get updates from your meteobridge every minute, unlike using the WeatherUnderground data source.
 
 **Warning:** *If you try to convert this code to support a Meteobridge on an external IP, you will have to accomodate any differences between the Timezone of your Hub and the Meteobridge, otherwise several values will be inaccurate.*
@@ -27,6 +32,12 @@ Significantly, EVERYTHING that this DTH displays in Tiles is also available prog
 *	1.0.10 - Minor display tweaks
 *	1.0.11 - Optimized PurpleAir AQI calculations
 *	1.0.12 - Converted to BigDecimal for maximum precision
+*	1.0.13 - Adjust decimal precision for rainfall (e.g., inches.2 vs mm.1)
+*	1.0.14 - Option to use Dark Sky conditions/forecast instead of Weather Underground
+*	1.0.15 - Expanded almanac display to include weather forecast
+*	1.0.16 - Added today's forecast data
+*	1.0.17 - Extensive formatting changes
+*	1.0.18 - Fixed units on forecasted temps
 
 ### Donations
 As always, my contributions to the SmartThings community are entirely free, but should you feel compelled to make a donation, you can do so here: https://paypal.me/BarryABurke
