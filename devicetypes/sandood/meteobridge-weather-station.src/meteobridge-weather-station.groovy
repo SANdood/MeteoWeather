@@ -38,17 +38,20 @@
 *	1.0.16 - Added today's forecast data
 *	1.0.17 - Extensive formatting changes
 *	1.0.18 - Fixed units on forecasted temps
+*	1.0.19 - Reduced normal-state log.info messages
+*	1.0.20 - Changed "SolRad"
+*	1.0.21 - Fixed temperature color on Android
 *
 */
 include 'asynchttp_v1'
 import groovy.json.JsonSlurper
 
-def getVersionNum() { return "1.0.18" }
+def getVersionNum() { return "1.0.21" }
 private def getVersionLabel() { return "Meteobridge Weather Station, version ${getVersionNum()}" }
 def getDebug() { false }
 def getFahrenheit() { true }		// Set to false for Celsius color scale
 def getCelsius() { !fahrenheit }
-def getSummaryText() { false }
+def getSummaryText() { true }
 
 
 metadata {
@@ -222,14 +225,13 @@ metadata {
     
     tiles(scale: 2) {
         multiAttributeTile(name:"temperatureDisplay", type:"generic", width:6, height:4, canChangeIcon: false) {
-        // multiAttributeTile(name:"temperatureDisplay", type:"thermostat", width:6, height:4, canChangeIcon: false) {
             tileAttribute("device.temperatureDisplay", key: "PRIMARY_CONTROL") {
-                attributeState("default", label:'${currentValue}', defaultValue: true,
+                attributeState("temperatureDisplay", label:'${currentValue}°', defaultState: true,
 					backgroundColors: (temperatureColors)
                 )
             }
-            tileAttribute("device.weatherIcon", key: "SECONDARY_CONTROL" /* decoration: "flat", inactiveLabel: false, width: 1, height: 1*/) {
-            	attributeState 'default', label: '${currentValue}', defaultValue: true
+            tileAttribute("device.weatherIcon", key: "SECONDARY_CONTROL") {
+            	//attributeState 'default', label: '${currentValue}', defaultState: true
                 attributeState "chanceflurries", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_flurries_11_fc.png", 					label: "Chance of Flurries"
                 attributeState "chancelightsnow", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_flurries_11_fc.png", 					label: "Chance of Light Snow"
                 attributeState "chancerain", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_drizzle_05_fc.png", 					label: "Chance of Rain"
@@ -474,7 +476,7 @@ metadata {
             state "default", label: '${currentValue}'
         }
         valueTile("solarRadiation", "device.solarRadiation", inactiveLabel: false, width: 1, height: 1, decoration: "flat", wordWrap: true) {
-            state "solarRadiation", label: 'Solar\nRad\'n\n${currentValue} W/m²'
+            state "solarRadiation", label: 'SolRad\n${currentValue}\nW/m²'
         }
         valueTile("windinfo", "device.windinfo", inactiveLabel: false, width: 2, height: 1, decoration: "flat", wordWrap: true) {
             state "windinfo", label: '${currentValue}'
@@ -680,7 +682,7 @@ def configure() { updated() }
 
 // Execute the hubAction request
 def getMeteoWeather() {
-    log.trace "getMeteoWeather()"
+    //log.trace "getMeteoWeather()"
     if (!state.meteoWeatherVersion || (state.meteoWeatherVersion != getVersionLabel())) {
     	// if the version level of the code changes, silently run updated() and initialize()
         log.trace "Version changed, updating..."
@@ -720,7 +722,7 @@ def meteoWeatherCallback(physicalgraph.device.HubResponse hubResponse) {
 }
 
 def getDarkSkyWeather() {
-	log.trace "getDarkSkyWeather()"
+	//log.trace "getDarkSkyWeather()"
     if( darkSkyKey == "" )
     {
         log.error "DarkSky Secret Key not found.  Please configure in preferences."
@@ -1118,7 +1120,7 @@ def updateWeatherTiles() {
             def td = roundIt(state.meteoWeather.current.temperature, 2)
 			send(name: "temperature", value: td, unit: unit, descriptionText: "Temperature is ${td}°${unit}")
             td = roundIt(state.meteoWeather.current.temperature, 1)
-            send(name: "temperatureDisplay", value: td + '°', unit: unit, displayed: false, descriptionText: "Temperature is ${td}°${unit}")
+            send(name: "temperatureDisplay", value: td.toString(), unit: unit, displayed: false, descriptionText: "Temperature is ${td}°${unit}")
             def t = roundIt(state.meteoWeather.current.highTemp, ud)
             send(name: "highTemp", value: t, unit: unit, descriptionText: "High Temperature so far today is ${t}°${unit}")
             t = roundIt(state.meteoWeather.current.lowTemp, ud)
@@ -1402,7 +1404,7 @@ private updateMeteoTime(timeStr, stateName) {
 private clearMeteoTime(stateName) {
 	send(name: stateName, value: "", displayed: false)
     send(name: stateName + 'APM', value: "", descriptionText: 'No ' + stateName + 'today')
-    send(name: stateName + 'Epoch', value: null, displayed: false)
+    send(name: stateName + 'Epoch', value: "", displayed: false)
 }
 private get(feature) {
     getWeatherFeature(feature, zipCode)
@@ -1517,7 +1519,7 @@ private estimateLux() {
 }
 
 def getPurpleAirAQI() {
-	log.trace "getPurpleAirAQI()"
+	//log.trace "getPurpleAirAQI()"
     if (!settings.purpleID) {
     	send(name: 'airQualityIndex', value: null, displayed: false)
         send(name: 'aqi', value: null, displayed: false)
