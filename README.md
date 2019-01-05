@@ -14,6 +14,9 @@ MeteoWeather now displays forecast details (hi/low temps & humidity, plus rainfa
 
 Also, you can choose the source for the daily forecast text (above sun/moon rise/set info). The default is to use whatever Meteobridge returns, but for non-Davis weather stations, this can be blank. Preferences options allow you to select the Weather Underground daily forecast, or the Dark Sky forecast (if Dark Sky is configured).
 
+### Updates 05 January 2019
+Now gets the "yesterday" data separately from the "current' data, reducing the load on your MeteoBridge (which could occaisionally time out). Other minor tweaks and optimizations.
+
 **Note:** since this uses `hubAction()` for the Meteobridge data, it will work only when your SmartThings hub and Meteobridge server are on the same (local) IP network. This approach keeps your password safe(r), but doesn't handle remote IP addresses. On the plus side, it is pretty lightweight to get updates from your meteobridge every minute, unlike using the WeatherUnderground data source.
 
 **Warning:** *If you try to convert this code to support a Meteobridge on an external IP, you will have to accomodate any differences between the Timezone of your Hub and the Meteobridge, otherwise several values will be inaccurate.*
@@ -38,6 +41,15 @@ Also, you can choose the source for the daily forecast text (above sun/moon rise
 *	1.0.16 - Added today's forecast data
 *	1.0.17 - Extensive formatting changes
 *	1.0.18 - Fixed units on forecasted temps
+*	1.0.19 - Reduced normal-state log.info messages
+*	1.0.20 - Changed "SolRad"
+*	1.0.21 - Fixed temperature color on Android
+*	1.0.22 - Get yesterday data separately, only when day/night changes
+*	1.0.23 - Changed to get yesterday data when the date changes
+*	1.0.24 - Optimizations
+*	1.0.25 - Use update time from the Meteobridge instead of time we made the http request
+*	1.0.26 - Support additional detail for current weather
+*	1.0.27 - Added attribution label
 
 ### Donations
 As always, my contributions to the SmartThings community are entirely free, but should you feel compelled to make a donation, you can do so here: https://paypal.me/BarryABurke
