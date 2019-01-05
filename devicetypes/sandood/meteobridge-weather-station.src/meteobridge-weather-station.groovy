@@ -41,12 +41,18 @@
 *	1.0.19 - Reduced normal-state log.info messages
 *	1.0.20 - Changed "SolRad"
 *	1.0.21 - Fixed temperature color on Android
+*	1.0.22 - Get yesterday data separately, only when day/night changes
+*	1.0.23 - Changed to get yesterday data when the date changes
+*	1.0.24 - Optimizations
+*	1.0.25 - Use update time from the Meteobridge instead of time we made the http request
+*	1.0.26 - Support additional detail for current weather
+*	1.0.27 - Added attribution label
 *
 */
 include 'asynchttp_v1'
 import groovy.json.JsonSlurper
 
-def getVersionNum() { return "1.0.21" }
+def getVersionNum() { return "1.0.27" }
 private def getVersionLabel() { return "Meteobridge Weather Station, version ${getVersionNum()}" }
 def getDebug() { false }
 def getFahrenheit() { true }		// Set to false for Celsius color scale
@@ -157,6 +163,7 @@ metadata {
         attribute "currentDate", "string"
   		attribute "lastSTupdate", "string"
         attribute "timestamp", "string"
+        attribute "attribution", "string"
         
         if (debug) {
         	attribute "meteoTemplate", "string"			// For debugging only
@@ -263,14 +270,37 @@ metadata {
                 attributeState "humid-partly-cloudy-day", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_partly_cloudy_02_fc.png", 		label: "Humid and Partly Cloudy"
                 attributeState "partlysunny", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_mostly_cloudy_03_fc.png", 				label: "Partly Sunny"
                 attributeState "rain", 				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_rain_06_fc.png", 						label: "Rain"
+                attributeState "rain-breezy",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_rain_06_fc.png", 						label: "Rain and Breezy"
+                attributeState "rain-windy",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_rain_06_fc.png", 						label: "Rain and Windy"
+                attributeState "rain-windy!",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_rain_06_fc.png", 						label: "Rain and Dangerously Windy"
                 attributeState "heavyrain", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_rain_06_fc.png", 						label: "Heavy Rain"
+                attributeState "heavyrain-breezy",	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_rain_06_fc.png", 						label: "Heavy Rain and Breezy"
+                attributeState "heavyrain-windy", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_rain_06_fc.png", 						label: "Heavy Rain and Windy"
+                attributeState "heavyrain-windy!", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_rain_06_fc.png", 						label: "Heavy Rain and Dangerously Windy"
                 attributeState "drizzle",			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_drizzle_05_fc.png", 					label: "Drizzle"
                 attributeState "lightrain",			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_drizzle_05_fc.png", 					label: "Light Rain"
+                attributeState "lightrain-breezy",	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_drizzle_05_fc.png", 					label: "Light Rain and Breezy"
+                attributeState "lightrain-windy",	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_drizzle_05_fc.png", 					label: "Light Rain and Windy"
+                attributeState "lightrain-windy!",	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_drizzle_05_fc.png", 					label: "Light Rain and Dangerously Windy"
                 attributeState "sleet",				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_freezing_rain_07_fc.png", 				label: "Sleet"
+                attributeState "lightsleet",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_freezing_rain_07_fc.png", 				label: "Light Sleet"
                 attributeState "snow", 				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_snow_10_fc.png", 						label: "Snow"
                 attributeState "tstorms", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_thunderstorms_15_fc.png", 				label: "Thunderstorms"
                 attributeState "thunderstorm", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_thunderstorms_15_fc.png", 				label: "Thunderstorm"
                 attributeState "windy",				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Windy"
+                attributeState "wind",				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Windy"
+                attributeState "wind!",				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Dangerously Windy"
+                attributeState "wind-foggy",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Windy and Foggy"
+                attributeState "wind-overcast",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Windy and Overcast"
+                attributeState "wind-overcast!",	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Dangerously Windy and Overcasy"
+                attributeState "wind-partlycloudy",	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Windy and Partly Cloudy"
+                attributeState "wind-partlycloudy!", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 						label: "Dangerously Windy and Partly Cloudy"
+                attributeState "wind-mostlycloudy",	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Windy and Mostly Cloudy"
+                attributeState "wind-mostlycloudy!",icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Dangerously Windy and Mostly Cloudy"
+                attributeState "breezy",			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Breezy"
+                attributeState "breezy-overcast",	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Breezy and Overcast"
+                attributeState "breezy-partlycloudy", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 						label: "Breezy and Partly Cloudy"
+                attributeState "breezy-mostlycloudy", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 						label: "Breezy and Mostly Cloudy"
                 attributeState "tornado",			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_tornado_17_fc.png",						label: "Tornado"
                 attributeState "hail",				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_flurries_11_fc.png",					label: "Hail"
                 attributeState "nt_chanceflurries", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 			label: "Chance of Flurries"
@@ -303,14 +333,26 @@ metadata {
                 attributeState "humid-partly-cloudy-night", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_partly_cloudy_101_fc.png", label: "Humid and Partly Cloudy"
                 attributeState "nt_partlysunny", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_mostly_cloudy_103_fc.png",		label: "Partly Clear"
                 attributeState "nt_flurries", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 			label: "Flurries"
+                attributeState "flurries-night", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 			label: "Flurries"
                 attributeState "lightsnow-night", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 			label: "Light Snow"
                 attributeState "nt_rain", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_rain_106_fc.png", 				label: "Rain"
                 attributeState "rain-night", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_rain_106_fc.png", 				label: "Rain"
+                attributeState "rain-breezy-night", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_rain_106_fc.png", 				label: "Rain and Breezy"
+                attributeState "rain-windy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_rain_106_fc.png", 				label: "Rain and Windy"
+                attributeState "rain-windy-night!", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_rain_106_fc.png", 				label: "Rain and Dangerously Windy"
                 attributeState "heavyrain-night", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_rain_106_fc.png", 				label: "Heavy Rain"
+                attributeState "heavyrain-breezy-night", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_rain_106_fc.png",			label: "Heavy Rain and Breezy"
+                attributeState "heavyrain-windy-night",	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_rain_106_fc.png", 			label: "Heavy Rain and Windy"
+                attributeState "heavyrain-windy-night!", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_rain_106_fc.png",			label: "Heavy Rain and Dangerously Windy"
                 attributeState "nt_drizzle", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_drizzle_105_fc.png", 				label: "Drizzle"
+                attributeState "drizzle-night", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_drizzle_105_fc.png", 				label: "Drizzle"
                 attributeState "lightrain-night", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_drizzle_105_fc.png", 				label: "Light Rain"
+                attributeState "lightrain-breezy-night", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_drizzle_105_fc.png", 		label: "Light Rain and Breezy"
+                attributeState "lightrain-windy-night", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_drizzle_105_fc.png", 			label: "Light Rain and Windy"
+                attributeState "lightrain-windy-night!", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_drizzle_105_fc.png", 		label: "Light Rain and Dangerously Windy"
                 attributeState "nt_sleet", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_freezing_rain_107_fc.png",		label: "Sleet"
                 attributeState "sleet-night", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_freezing_rain_107_fc.png",		label: "Sleet"
+                attributeState "lightsleet-night",	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_freezing_rain_107_fc.png",		label: "Sleet"
                 attributeState "nt_snow", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_night_snow_110_fc.png,",				label: "Snow"
                 attributeState "snow-night", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_night_snow_110_fc.png,",				label: "Snow"
                 attributeState "nt_tstorms", 		icon:"shttps://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_thunderstorms_115_fc.png",		label: "Thunderstorms"
@@ -320,6 +362,19 @@ metadata {
                 attributeState "cloudy-night", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_cloudy_04_fc.png", 						label: "Overcast"
                 attributeState "nt_windy",			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Windy"
                 attributeState "windy-night",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Windy"
+                attributeState "wind-night",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Windy"
+                attributeState "wind-night!",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Dangerously Windy"
+                attributeState "wind-foggy-night",	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Windy and Foggy"
+                attributeState "wind-overcast-night", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 						label: "Windy and Overcast"
+                attributeState "wind-overcast-night!", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 						label: "Dangerously Windy and Overcast"
+                attributeState "wind-partlycloudy-night", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 					label: "Windy and Partly Cloudy"
+                attributeState "wind-partlycloudy-night!", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 					label: "Dangerously Windy and Partly Cloudy"
+                attributeState "wind-mostlycloudy-night", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 					label: "Windy and Mostly Cloudy"
+                attributeState "wind-mostly-cloudy-night!",	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 					label: "Dangerously Windy and Mostly Cloudy"
+                attributeState "breezy-night",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Breezy"
+                attributeState "breezy-overcast-night",	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 						label: "Breezy and Overcast"
+                attributeState "breezy-partlycloudy-night",	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 					label: "Breezy and Partly Cloudy"
+                attributeState "breezy-mostlycloudy-night",	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 					label: "Breezy and Mostly Cloudy"
                 attributeState "nt_tornado",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_tornado_17_fc.png",						label: "Tornado"
                 attributeState "tornado-night",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_tornado_17_fc.png",						label: "Tornado"
                 attributeState "nt_hail",			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png",				label: "Hail"
@@ -386,6 +441,9 @@ metadata {
         valueTile("lastSTupdate", "device.lastSTupdate", inactiveLabel: false, width: 3, height: 1, decoration: "flat", wordWrap: true) {
             state("default", label: 'Updated\nat ${currentValue}')
         }
+        valueTile("attribution", "device.attribution", inactiveLabel: false, width: 3, height: 1, decoration: "flat", wordWrap: true) {
+        	state("default", label: 'Powered by: ${currentValue}')
+        }
         valueTile("heatIndex", "device.heatIndexDisplay", inactiveLabel: false, width: 1, height: 1, decoration: "flat", wordWrap: true) {
             state "default", label:'Heat\nIndex\n${currentValue}'
         }
@@ -432,16 +490,16 @@ metadata {
             state "default", label:'${currentValue}'
         }
         valueTile("sunrise", "device.sunriseAPM", inactiveLabel: false, width: 1, height: 1, decoration: "flat", wordWrap: true) {
-            state "default", label:'Sun\nRise\n${currentValue}'
+            state "default", label:'Sun\nRises\n${currentValue}'
         }
         valueTile("sunset", "device.sunsetAPM", inactiveLabel: false, width: 1, height: 1, decoration: "flat", wordWrap: true) {
-            state "default", label:'Sun\nSet\n${currentValue}'
+            state "default", label:'Sun\nSets\n${currentValue}'
         }
         valueTile("moonrise", "device.moonriseAPM", inactiveLabel: false, width: 1, height: 1, decoration: "flat", wordWrap: true) {
-            state "default", label:'Moon\nRise\n${currentValue}'
+            state "default", label:'Moon\nRises\n${currentValue}'
         }
         valueTile("moonset", "device.moonsetAPM", inactiveLabel: false, width: 1, height: 1, decoration: "flat", wordWrap: true) {
-            state "default", label:'Moon\nSet\n${currentValue}'
+            state "default", label:'Moon\nSets\n${currentValue}'
         }
         valueTile("daylight", "device.dayHours", inactiveLabel: false, width: 1, height: 1, decoration: "flat", wordWrap: true) {
             state "default", label:'Daylight\nHours\n${currentValue}'
@@ -592,7 +650,7 @@ metadata {
                     "todayTile", 'lowTemp', 'highTemp', 'lowHumidity', 'highHumidity', 'precipToday',
                     'todayFcstTile', 'lowTempFcst', 'highTempFcst', 'avgHumFcst', 'popFcst', 'precipFcst',
                     'tomorrowTile', 'lowTempTom', 'highTempTom', 'avgHumTom', 'popTom', 'precipTom',
-                    "lastSTupdate",
+                    "lastSTupdate", 'attribution'
                ])
     }
 }
@@ -626,24 +684,28 @@ def updated() {
 
 def initialize() {
 	log.info 'Initializing...'
-    
+    def poweredBy = "MeteoBridge"
     // Create the template using the latest preferences values (components defined at the bottom)
-    state.meteoTemplate = forecastTemplate + yesterdayTemplate + currentTemplate
+    state.meteoTemplate = ((fcstSource && (fcstSource == 'meteo'))? forecastTemplate : '') /* + yesterdayTemplate */ + currentTemplate
     if (debug) send(name: 'meteoTemplate', value: state.meteoTemplate, displayed: false, isStateChange: true)
     
     def userpassascii = meteoUser + ':' + meteoPassword
 	state.userpass = "Basic " + userpassascii.encodeAsBase64().toString()
     
     // Schedule the updates
+    state.today = null
     def t = updateMins ?: '5'
     if (t == '1') {
+    	log.debug "scheduling for every minute"
     	runEvery1Minute(getMeteoWeather)
     } else {
+    	log.debug "scheduling for every ${t} minutes"
     	"runEvery${t}Minutes"(getMeteoWeather)
        	runIn(5,getMeteoWeather)						// Have to wait to let the state changes settle
     }
     
     if (darkSkyKey != '') {
+    	poweredBy += ', Dark Sky'
     	runEvery10Minutes(getDarkSkyWeather)			// Async Dark Sky current & forecast weather
         getDarkSkyWeather()
     } 
@@ -653,9 +715,12 @@ def initialize() {
     updateWundergroundTiles()
     // }
     if (purpleID) {
+    	poweredBy += ', PurpleAir'
     	runEvery3Minutes(getPurpleAirAQI)				// Async Air Quality
     	// getPurpleAirAQI()
     }
+    poweredBy += ' and Weather Underground'
+    send(name: 'attribution', value: poweredBy, displayed: false, isStateChange: true)
 }
 
 def runEvery3Minutes(handler) {
@@ -668,6 +733,7 @@ def runEvery3Minutes(handler) {
 // handle commands
 def poll() { refresh() }
 def refresh() { 
+	state.today = null
 	getMeteoWeather()
     if (darkSkyKey != '') {
     	getDarkSkyWeather()
@@ -681,8 +747,8 @@ def getWeatherReport() { return state.meteoWeather }
 def configure() { updated() }
 
 // Execute the hubAction request
-def getMeteoWeather() {
-    //log.trace "getMeteoWeather()"
+def getMeteoWeather( yesterday = false) {
+    if (debug) log.trace "getMeteoWeather( ${yesterday} )"
     if (!state.meteoWeatherVersion || (state.meteoWeatherVersion != getVersionLabel())) {
     	// if the version level of the code changes, silently run updated() and initialize()
         log.trace "Version changed, updating..."
@@ -694,21 +760,23 @@ def getMeteoWeather() {
             method: "GET",
             path: "/cgi-bin/template.cgi",
             headers: [ HOST: "${meteoIP}:${meteoPort}", 'Authorization': state.userpass ],
-            query: ['template': "{\"timestamp\":${now()}," + state.meteoTemplate, 'contenttype': 'application/json;charset=utf-8' ],
+            query: ['template': "{\"timestamp\":${now()},\"version\":[mbsystem-swversion:1.0]," + (yesterday ? yesterdayTemplate : state.meteoTemplate), 'contenttype': 'application/json;charset=utf-8' ],
             null,
             [callback: meteoWeatherCallback]
         )
+    // if (debug) log.debug "hubAction: ${hubAction}"
     try {
         sendHubCommand(hubAction)
     } catch (Exception e) {
-    	log.error "sendHubCommand Exception $e on $hubAction"
+    	if (debug) log.error "sendHubCommand Exception $e on $hubAction"
     }
+    if (debug) log.trace "getMeteoWeather() completed"
 }
 
 // Handle the hubAction response
 def meteoWeatherCallback(physicalgraph.device.HubResponse hubResponse) {
 	log.info "meteoWeatherCallback() status: " + hubResponse.status
-    //log.debug "meteoWeatherCallback() headers: " + hubResponse.headers
+    if (debug) log.debug "meteoWeatherCallback() headers: " + hubResponse.headers
     if ((hubResponse.status == 200) && hubResponse.json) {
 		state.meteoWeather = hubResponse.json
         //log.debug "meteoWeatherCallback() json: " + hubResponse.json
@@ -766,20 +834,45 @@ def darkSkyCallback(response, data) {
     if (isNight) {
     	switch(icon) {
         	case 'rain':
-            	if ((darkSky.currently.summary == 'Light Rain') || (darkSky.currently.summary == 'Drizzle')) icon = 'lightrain-night'
-                else if (darkSky.currently.summary == 'Heavy Rain') icon = 'heavyrain-night'
-                else if (darkSky.currently.summary == 'Possible Light Rain') icon = 'chancelightrain-night'
-                else if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancerain-night'
+            	if (darkSky.currently.summary == 'Drizzle') {
+                	icon = 'drizzle-night'
+                } else if (darkSky.currently.summary.startsWith('Light Rain')) { 
+                	icon = 'lightrain'
+                    if 		(darkSky.currently.summary.contains('Breezy')) icon += '-breezy'
+                    else if (darkSky.currently.summary.contains('Windy'))  icon += '-windy'
+                    icon += '-night'
+                } else if (darkSky.currently.startsWith('Heavy Rain')) {
+                    icon = 'heavyrain'
+                    if 		(darkSky.currently.summary.contains('Breezy')) icon += '-breezy'
+                    else if (darkSky.currently.summary.contains('Windy'))  icon += '-windy'
+                    icon += '-night'
+                } else if (darkSky.currently.summary == 'Possible Light Rain') {
+                	icon = 'chancelightrain-night'
+            	} else if (darkSky.currently.summary.startsWith('Possible')) {
+                	icon = 'chancerain-night'
+                } else if (darksky.currently.summary.startsWith('Rain')) {
+                	if 		(darkSky.currently.summary.contains('Breezy')) icon += '-breezy'
+                    else if (darkSky.currently.summary.contains('Windy'))  icon += '-windy'
+                    icon += '-night'
+                }
+                if (darkSky.currently.summary.contains('Dangerously Windy')) icon += '!'
                 break;
             case 'snow':
-            	if ((darkSky.currently.summary == 'Light Snow') || (darkSky.currently.summary == 'Flurries')) icon = 'lightsnow-night'
+            	if 		(darkSky.currently.summary == 'Light Snow') icon = 'lightsnow-night'
+                else if (darkSky.currently.summary == 'Flurries') icon = 'flurries-night'
                 else if (darkSky.currently.summary == 'Possible Light Snow') icon = 'chancelightsnow-night'
                 else if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancesnow-night'
                 break;
             case 'sleet':
             	if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancesleet-night'
+                else if (darkSky.currently.summary.startsWith('Light')) icon = 'lightsleet-night'
+            	else icon = 'sleet-night'
                 break;
             case 'partly-cloudy':
+                if (darkSky.currently.summary.contains('Mostly Cloudy')) icon = 'mostly-cloudy'
+                if (darkSky.currently.summary.startsWith('Humid')) icon = 'humid-' + icon
+                icon += '-night'                    
+                break;
             case 'partly-cloudy-night':
             	if (darkSky.currently.summary.contains('Mostly Cloudy')) icon = 'mostly-cloudy-night'
                 if (darkSky.currently.summary.startsWith('Humid')) icon = 'humid-' + icon
@@ -788,6 +881,8 @@ def darkSkyCallback(response, data) {
             	if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancetstorms-night'
                 break;
             case 'cloudy':
+            if (darkSky.currently.summary.startsWith('Humid')) icon = 'humid-' + icon + '-night'
+                break;
             case 'cloudy-night':
             	if (darkSky.currently.summary.startsWith('Humid')) icon = 'humid-' + icon
                 break;
@@ -795,12 +890,27 @@ def darkSkyCallback(response, data) {
             case 'sunny':
             	icon = 'clear-night'
             case 'clear-night':
-            	if (darkSky.currently.summary == 'Humid') icon = 'humid-night'
+            	if (darkSky.currently.summary.contains('Humid')) icon = 'humid-night'
                 break;
-            case 'wind':
+        	case 'wind':
+                if (darkSky.currently.summary.contains('Windy')) {
+                	icon = 'wind-night'
+                    if 		(darkSky.currently.summary.contains('Overcast')) 	  icon = 'wind-overcast-night'
+                    else if (darkSky.currently.summary.contains('Mostly Cloudy')) icon = 'wind-mostlycloudy-night'
+                    else if (darkSky.currently.summary.contains('Partly Cloudy')) icon = 'wind-partlycloudy-night'
+                    else if (darksky.currently.summary.contains('Foggy'))		  icon = 'wind-foggy-night'
+                    if 		(darkSky.currently.summary.startsWith('Danger')) 	  icon += '!'
+                } else if (darkSky.currently.summary.contains('Breezy')) {
+                	icon = 'breezy-night'
+                    if 		(darkSky.currently.summary.contains('Overcast')) 	  icon = 'breezy-overcast-night'
+                    else if (darkSky.currently.summary.contains('Mostly Cloudy')) icon = 'breezy-mostlycloudy-night'
+                    else if (darkSky.currently.summary.contains('Partly Cloudy')) icon = 'breezy-partlycloudy-night'
+                    // if 		(darkSky.currently.summary.startsWith('Danger')) 	  icon += '!'
+        		}
+                break;
             case 'fog':
             case 'hail':
-            case 'wind':
+            case 'breezy':
             case 'tornado':
             	icon = icon + '-night'		// adjust icons for night time that DarkSky doesn't
                 break;    
@@ -808,21 +918,40 @@ def darkSkyCallback(response, data) {
     } else { 
     	switch(icon) {
         	case 'rain':
-            	if ((darkSky.currently.summary == 'Light Rain') || (darkSky.currently.summary == 'Drizzle')) icon = 'lightrain'
-                else if (darkSky.currently.summary == 'Heavy Rain') icon = heavyrain
-                else if (darkSky.currently.summary == 'Possible Light Rain') icon = 'chancelightrain'
-                else if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancerain'
+            	// rain=[Possible Light Rain, Light Rain, Rain, Heavy Rain, Drizzle, Light Rain and Breezy, Light Rain and Windy, 
+                //       Rain and Breezy, Rain and Windy, Heavy Rain and Breezy, Rain and Dangerously Windy, Light Rain and Dangerously Windy],
+            	if (darkSky.currently.summary == 'Drizzle') {
+                	icon = 'drizzle'
+                } else if 	(darkSky.currently.summary.startsWith('Light Rain')) { 
+                	icon = 'lightrain'
+                    if 		(darkSky.currently.summary.contains('Breezy')) icon += '-breezy'
+                    else if (darkSky.currently.summary.contains('Windy'))  icon += '-windy'
+                } else if 	(darkSky.currently.startsWith('Heavy Rain')) {
+                    icon = 'heavyrain'
+                    if 		(darkSky.currently.summary.contains('Breezy')) icon += '-breezy'
+                    else if (darkSky.currently.summary.contains('Windy'))  icon += '-windy'
+                } else if 	(darkSky.currently.summary == 'Possible Light Rain') {
+                	icon = 'chancelightrain'
+            	} else if 	(darkSky.currently.summary.startsWith('Possible')) {
+                	icon = 'chancerain'
+                } else if 	(darksky.currently.summary.startsWith('Rain')) {
+                	if 		(darkSky.currently.summary.contains('Breezy')) icon += '-breezy'
+                    else if (darkSky.currently.summary.contains('Windy'))  icon += '-windy'
+                }
+                if (darkSky.currently.summary.contains('Dangerously Windy')) icon += '!'
                 break;
             case 'snow':
-            	if ((darkSky.currently.summary == 'Light Snow') || (darkSky.currently.summary == 'Flurries')) icon = 'lightsnow'
+            	if 		(darkSky.currently.summary == 'Light Snow')  icon = 'lightsnow'
+                else if (darkSky.currently.summary == 'Flurries') icon = 'flurries'
                 else if (darkSky.currently.summary == 'Possible Light Snow') icon = 'chancelightsnow'
                 else if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancesnow'
                 break;
             case 'sleet':
-            	if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancesleet-night'
+            	if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancesleet'
+                else if (darkSky.currently.summary.startsWith('Light')) icon = 'lightsleet'
                 break;
             case 'thunderstorm':
-            	if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancetstorms-night'
+            	if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancetstorms'
                 break;
         	case 'partly-cloudy':
             case 'partly-cloudy-day':
@@ -836,6 +965,24 @@ def darkSkyCallback(response, data) {
             case 'clear':
             case 'clear-day':
             	if (darkSky.currently.summary == 'Humid') icon = 'humid'
+                break;
+            case 'wind':
+            // wind=[Windy and Overcast, Windy and Mostly Cloudy, Windy and Partly Cloudy, Breezy and Mostly Cloudy, Breezy and Partly Cloudy, 
+            // Breezy and Overcast, Breezy, Windy, Dangerously Windy and Overcast, Windy and Foggy, Dangerously Windy and Partly Cloudy]}
+            	if (darkSky.currently.summary.contains('Windy')) {
+                	// icon = 'wind'
+                    if 		(darkSky.currently.summary.contains('Overcast')) 	  icon = 'wind-overcast'
+                    else if (darkSky.currently.summary.contains('Mostly Cloudy')) icon = 'wind-mostlycloudy'
+                    else if (darkSky.currently.summary.contains('Partly Cloudy')) icon = 'wind-partlycloudy'
+                    else if (darksky.currently.summary.contains('Foggy'))		  icon = 'wind-foggy'
+                    if 		(darkSky.currently.summary.startsWith('Danger')) 	  icon += '!'
+                } else if (darkSky.currently.summary.contains('Breezy')) {
+                	icon = 'breezy'
+                    if 		(darkSky.currently.summary.contains('Overcast')) 	  icon = 'breezy-overcast'
+                    else if (darkSky.currently.summary.contains('Mostly Cloudy')) icon = 'breezy-mostlycloudy'
+                    else if (darkSky.currently.summary.contains('Partly Cloudy')) icon = 'breezy-partlycloudy'
+                    //if 		(darkSky.currently.summary.startsWith('Danger')) 	  icon += '!'
+        		}
                 break;
         }
     	
@@ -1079,11 +1226,23 @@ def updateWundergroundTiles() {
 // This updates the tiles with Meteobridge data
 def updateWeatherTiles() {
     if (state.meteoWeather != [:]) {
-        // log.debug "meteoWeather: ${state.meteoWeather}"
+        
+        if (debug) log.debug "meteoWeather: ${state.meteoWeather}"
 		String unit = getTemperatureScale()
         String h = (height_units && (height_units == 'height_in')) ? '"' : 'mm'
         int hd = (h = '"') ? 2 : 1		// digits to store & display
         int ud = unit=='F' ? 0 : 1
+        
+	// Forecast Data
+        if (!fcstSource || (fcstSource == 'meteo')) {
+            if (state.meteoWeather.forecast?.text != null) {
+                send(name: 'forecast', value: state.meteoWeather.forecast?.text, descriptionText: "Davis Forecast: " + state.meteoWeather.forecast?.text)
+                send(name: "forecastCode", value: state.meteoWeather.forecast?.code, descriptionText: "Davis Forecast Rule #${state.meteoWeather.forecast?.code}")
+            } else {
+                // If the Meteobridge isn't providing a forecast (only provided for SOME Davis weather stations), use the one from WunderGround
+                state.wunderForTomorrow = true
+            }
+        }
         
     // Yesterday data
         if (state.meteoWeather.yesterday) {
@@ -1104,7 +1263,7 @@ def updateWeatherTiles() {
         }
 
     // Today data
-		if (state.meteoWeather.current != [:]) { 
+		if (state.meteoWeather.current) { 
         	if (state.meteoWeather.current.isDay?.isNumber() && (state.meteoWeather.current.isDay.toInteger() != device.currentValue('isDay')?.toInteger())) {
             	updateWundergroundTiles()
                 if (state.meteoWeather.current.isDay == 1) {
@@ -1319,17 +1478,6 @@ def updateWeatherTiles() {
             def lux = estimateLux()
 			send(name: "illuminance", value: lux, unit: 'lux', descriptionText: "Illumination is ${lux} lux (est)")
             
-    		// Forecast
-        	if (!fcstSource || (fcstSource == 'meteo')) {
-            	if (state.meteoWeather.forecast?.text != null) {
-                    send(name: 'forecast', value: state.meteoWeather.forecast?.text, descriptionText: "Davis Forecast: " + state.meteoWeather.forecast?.text)
-                    send(name: "forecastCode", value: state.meteoWeather.forecast?.code, descriptionText: "Davis Forecast Rule #${state.meteoWeather.forecast?.code}")
-                } else {
-                	// If the Meteobridge isn't providing a forecast (only provided for SOME Davis weather stations), use the one from WunderGround
-                	state.wunderForTomorrow = true
-                }
-            }
-            
         	// Lunar Phases
         	String xn = 'x'				// For waxing/waning below
             String phase = null
@@ -1389,9 +1537,21 @@ def updateWeatherTiles() {
         }
         
         // update the timestamps last, after all the values have been updated
-        def now = new Date(state.meteoWeather.timestamp).format("h:mm:ss a '\non' M/d/yyyy",location.timeZone).toLowerCase()
-        sendEvent(name:"lastSTupdate", value: now, displayed: false)
+        def nowText = null
+        if (state.meteoWeather.current?.date != null) {
+        	nowText = state.meteoWeather.current.time + '\non ' + state.meteoWeather.current.date
+        } else {
+        	nowText = '~' + new Date(state.meteoWeather.timestamp).format("h:mm:ss a '\non' M/d/yyyy", location.timeZone).toLowerCase()
+    	}
+        if (nowText != null) sendEvent(name:"lastSTupdate", value: nowText, displayed: false)
         sendEvent(name:"timestamp", value: state.meteoWeather.timestamp, displayed: false)
+        
+        // Check if it's time to get yesterday's data
+        if (debug) log.debug "Current date from MeteoBridge is: ${state.meteoWeather.current?.date}"
+        if ((state.meteoWeather.current?.date != null) && ((state.today == null) || (state.today != state.meteoWeather.current.date))) {
+        	state.today = state.meteoWeather.current.date
+        	getMeteoWeather( true )
+        }
 	}
 }
 private updateMeteoTime(timeStr, stateName) {
@@ -1649,19 +1809,23 @@ private def remap(value, fromLow, fromHigh, toLow, toHigh) {
 }
 String getMeteoSensorID() {
     def version = state.meteoWeather?.version?.isNumber() ? state.meteoWeather.version : 1.0
-    return ( version > 3.6 ) ? '*' : '0'
+    def sensorID = (version && ( version > 3.6 )) ? '*' : '0'
+    if (debug) log.debug "version: ${version}, sensor: ${sensorID}"
+    return sensorID   
 }
 def getForecastTemplate() {
-	return '"forecast":{"text":"[forecast-text:]","code":[forecast-rule]},"version":[mbsystem-swversion:1.0],'
+	return '"forecast":{"text":"[forecast-text:]","code":[forecast-rule]},'
 }
 def getYesterdayTemplate() {
 	String s = getTemperatureScale() 
 	String d = getMeteoSensorID() 
-    return "\"yesterday\":{\"highTemp\":[th${d}temp-ydmax=${s}.2:null],\"lowTemp\":[th${d}temp-ydmin=${s}.2:null],\"highHum\":[th${d}hum-ydmax=.2:null],\"lowHum\":[th${d}hum-ydmin=.2:null]," + yesterdayRainfall + '},'
+    // String d = '0'
+    return "\"yesterday\":{\"highTemp\":[th${d}temp-ydmax=${s}.2:null],\"lowTemp\":[th${d}temp-ydmin=${s}.2:null],\"highHum\":[th${d}hum-ydmax=.2:null],\"lowHum\":[th${d}hum-ydmin=.2:null]," + yesterdayRainfall + '}}'
 }
 def getCurrentTemplate() {
 	String d = getMeteoSensorID()
-	return "\"current\":{\"date\":\"[MM]/[DD]/[YYYY]\",\"humidity\":[th${d}hum-act=.2:null],\"indoorHum\":[thb${d}hum-act=.2:null]," + temperatureTemplate + currentRainfall + pressureTemplate + windTemplate +
+    // String d = '0'
+	return "\"current\":{\"date\":\"[M]/[D]/[YY]\",\"time\":\"[H]:[mm]:[ss] [apm]\",\"humidity\":[th${d}hum-act=.2:null],\"indoorHum\":[thb${d}hum-act=.2:null]," + temperatureTemplate + currentRainfall + pressureTemplate + windTemplate +
 			"\"pressureTrend\":\"[thb${d}seapress-delta1=enbarotrend:N/A]\",\"dayHours\":\"[mbsystem-daylength:]\",\"highHum\":[th${d}hum-dmax=.2:null],\"lowHum\":[th${d}hum-dmin=.2:null]," +
 			"\"sunrise\":\"[mbsystem-sunrise:]\",\"sunset\":\"[mbsystem-sunset:]\",\"dayMinutes\":[mbsystem-daylength=mins.0:null],\"uvIndex\":[uv${d}index-act:null]," +
             "\"solarRadiation\":[sol${d}rad-act:null],\"lunarAge\":[mbsystem-lunarage:],\"lunarPercent\":[mbsystem-lunarpercent:],\"lunarSegment\":[mbsystem-lunarsegment:null]," +
@@ -1670,27 +1834,32 @@ def getCurrentTemplate() {
 def getTemperatureTemplate() { 
 	String s = getTemperatureScale() 
     String d = getMeteoSensorID() 
+    // String d = '0'
 	return "\"temperature\":[th${d}temp-act=${s}.2:null],\"dewpoint\":[th${d}dew-act=${s}.2:null],\"heatIndex\":[th${d}heatindex-act=${s}.2:null],\"windChill\":[wind${d}chill-act=${s}.2:null]," +
     		"\"indoorTemp\":[thb${d}temp-act=${s}.2:null],\"indoorDew\":[thb${d}dew-act=${s}.2:null],\"highTemp\":[th${d}temp-dmax=${s}.2:null],\"lowTemp\":[th${d}temp-dmin=${s}.2:null],"
 }
 def getPressureTemplate() {
 	String p = (pres_units && (pres_units == 'press_in')) ? 'inHg' : 'mmHg'
     String d = getMeteoSensorID() 
+    // String d = '0'
 	return "\"pressure\":[thb${d}seapress-act=${p}.2:null],"
 }
 def getYesterdayRainfall() {
 	String r = (height_units && (height_units == 'height_in')) ? 'in' : ''
     String d = getMeteoSensorID()
-	return "\"rainfall\":[rain${d}total-ydaysum=${r}.3:null]," 
+    // String d = '0'
+	return "\"rainfall\":[rain${d}total-ydaysum=${r}.3:null]" 
 }
 def getCurrentRainfall() {
 	String r = (height_units && (height_units == 'height_in')) ? 'in' : ''
     String d = getMeteoSensorID()
+    // String d = '0'
 	return "\"rainfall\":[rain${d}total-daysum=${r}.3:null],\"rainLastHour\":[rain${d}total-sum1h=${r}.3:null],\"evapotranspiration\":[sol${d}evo-act=${r}.3:null],\"rainRate\":[rain${d}rate-act=${r}.3:null],"
 }
 def getWindTemplate() {
     String s = (speed_units && (speed_units == 'speed_mph')) ? 'mph' : 'kmh'
     String d = getMeteoSensorID()
+    // String d = '0'
 	return "\"windGust\":[wind${d}wind-max10=${s}.2:null],\"windAvg\":[wind${d}wind-act=${s}.2:null],\"windDegrees\":[wind${d}dir-act:null],\"windSpeed\":[wind${d}wind-act=${s}.2:null],\"windDirText\":\"[wind${d}dir-act=endir:null]\","
 }
 def getTemperatureColors() {
