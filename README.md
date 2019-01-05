@@ -15,7 +15,9 @@ MeteoWeather now displays forecast details (hi/low temps & humidity, plus rainfa
 Also, you can choose the source for the daily forecast text (above sun/moon rise/set info). The default is to use whatever Meteobridge returns, but for non-Davis weather stations, this can be blank. Preferences options allow you to select the Weather Underground daily forecast, or the Dark Sky forecast (if Dark Sky is configured).
 
 ### Updates 05 January 2019
-Now gets the "yesterday" data separately from the "current' data, reducing the load on your MeteoBridge (which could occaisionally time out). Other minor tweaks and optimizations.
+* Now gets the "yesterday" data separately from the "current' data, reducing the load on your MeteoBridge (which could occaisionally time out)
+* Added more detail for the current weather indication on the main tile
+* Several ther minor tweaks and optimizations
 
 **Note:** since this uses `hubAction()` for the Meteobridge data, it will work only when your SmartThings hub and Meteobridge server are on the same (local) IP network. This approach keeps your password safe(r), but doesn't handle remote IP addresses. On the plus side, it is pretty lightweight to get updates from your meteobridge every minute, unlike using the WeatherUnderground data source.
 
