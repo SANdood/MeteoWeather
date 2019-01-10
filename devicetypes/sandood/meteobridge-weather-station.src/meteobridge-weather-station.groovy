@@ -46,19 +46,20 @@
 *	1.0.24 - Optimizations
 *	1.0.25 - Use update time from the Meteobridge instead of time we made the http request
 *	1.0.26 - Support additional detail for current weather
-*	1.0.27 - Added attribution label
+*	1.0.27 - Added attribution labels
+*	1.0.28 - Added TWC weather (replacing WU soon)
 *
 */
 include 'asynchttp_v1'
 import groovy.json.JsonSlurper
+import groovy.json.JsonOutput
 
-def getVersionNum() { return "1.0.27" }
+def getVersionNum() { return "1.0.28" }
 private def getVersionLabel() { return "Meteobridge Weather Station, version ${getVersionNum()}" }
 def getDebug() { false }
 def getFahrenheit() { true }		// Set to false for Celsius color scale
 def getCelsius() { !fahrenheit }
 def getSummaryText() { true }
-
 
 metadata {
     definition (name: "Meteobridge Weather Station", namespace: "sandood", author: "sandood") {
@@ -172,6 +173,8 @@ metadata {
         	attribute "iconErr", "string"				// For debugging only
         	attribute "wundergroundObs", "string"		// For debugging only
         	attribute "darkSkyWeather", "string"		// For debugging only
+            attribute "twcConditions", "string"
+            attribute "twcForecast", "string"
         }
         
         if (summaryText) attribute "summaryList", "string"
@@ -185,7 +188,8 @@ metadata {
     	input(name: 'updateMins', type: 'enum', description: "Select the update frequency", 
         	title: "${getVersionLabel()}\n\nUpdate frequency (minutes)", displayDuringSetup: true, defaultValue: '5', options: ['1', '3', '5','10','15','30'], required: true)
         
-        input(name: "zipCode", type: "text", title: "Zip Code or PWS (optional)", required: false, displayDuringSetup: true, description: 'Specify ZipCode or pws:')
+        input(name: "zipCode", type: "text", title: "Zip Code or PWS (optional)", required: false, displayDuringSetup: true, description: 'Specify Weather Underground ZipCode or pws:')
+        input(name: "twcLoc", type: "text", title: "TWC Location code (optional)\n(US ZipCode or Lat,Lon)", required: false, displayDuringSetup: true, description: 'Leave blank for ST Hub location')
         
         input (description: "Setup Meteobridge access", title: "Meteobridge Setup", displayDuringSetup: true, type: 'paragraph', element: 'MeteoBridge')
         input "meteoIP", "string", title:"Meteobridge IP Address", description: "Eenter your Meteobridge's IP Address", required: true, displayDuringSetup: true
@@ -195,10 +199,10 @@ metadata {
         
         input ("purpleID", "string", title: 'Purple Air Sensor ID (optional)', description: 'Enter your PurpleAir Sensor ID', required: false, displayDuringSetup: true)
 
-        input ("darkSkyKey", "string", title: 'DarkSky Secret Key', description: 'Enter your DarkSky key (from darksky.net)', required: false, displayDuringSetup: true)
+        input ("darkSkyKey", "string", title: 'DarkSky Secret Key (optional)', description: 'Enter your DarkSky key (from darksky.net)', required: false, displayDuringSetup: true)
         
         input ("fcstSource", "enum", title: 'Select weather forecast source', description: "Select the source for your weather forecast (default=Meteobridge)", required: false, displayDuringSetup: true,
-        		options: (darkSkyKey!=''?['darksky':'Dark Sky']:[]) + ['meteo': 'Meteobridge', 'wunder':'Weather Underground'])
+        		options: (darkSkyKey!=''?['darksky':'Dark Sky']:[]) + ['meteo': 'Meteobridge', 'twc': 'The Weather Company', 'wunder': 'Weather Underground'])
                 
         input ("pres_units", "enum", title: "Barometric Pressure units (optional)", required: false, displayDuringSetup: true, description: "Select desired units:",
 			options: [
@@ -254,9 +258,13 @@ metadata {
                 attributeState "cloudy", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_cloudy_04_fc.png", 					label: "Overcast"
                 attributeState "humid-cloudy",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_cloudy_04_fc.png", 					label: "Humid and Overcast"
                 attributeState "flurries", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_flurries_11_fc.png", 					label: "Flurries"
+                attributeState "scattered-flurries", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_flurries_11_fc.png", 					label: "Scattered Flurries"
+                attributeState "scattered-snow", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_flurries_11_fc.png", 					label: "Scattered Snow Showers"
                 attributeState "lightsnow", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_flurries_11_fc.png", 					label: "Light Snow"
+                attributeState "frigid-ice", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_flurries_11_fc.png", 					label: "Frigid / Ice Crystals"
                 attributeState "fog", 				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_fog_18_fc.png", 						label: "Foggy"
                 attributeState "hazy", 				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_fog_18_fc.png", 						label: "Hazy"
+                attributeState "smoke",				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_fog_18_fc.png", 						label: "Smoke"
                 attributeState "mostlycloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_mostly_cloudy_03_fc.png", 				label: "Mostly Cloudy"
                 attributeState "mostly-cloudy", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_mostly_cloudy_03_fc.png", 				label: "Mostly Cloudy"
                 attributeState "mostly-cloudy-day",	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_mostly_cloudy_03_fc.png", 				label: "Mostly Cloudy"
@@ -278,17 +286,31 @@ metadata {
                 attributeState "heavyrain-windy", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_rain_06_fc.png", 						label: "Heavy Rain and Windy"
                 attributeState "heavyrain-windy!", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_rain_06_fc.png", 						label: "Heavy Rain and Dangerously Windy"
                 attributeState "drizzle",			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_drizzle_05_fc.png", 					label: "Drizzle"
+                attributeState "lightdrizzle",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_drizzle_05_fc.png", 					label: "Light Drizzle"
+                attributeState "heavydrizzle",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_drizzle_05_fc.png", 					label: "Heavy Drizzle"
                 attributeState "lightrain",			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_drizzle_05_fc.png", 					label: "Light Rain"
+                attributeState "scattered-showers",	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_drizzle_05_fc.png", 					label: "Scattered Showers"
                 attributeState "lightrain-breezy",	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_drizzle_05_fc.png", 					label: "Light Rain and Breezy"
                 attributeState "lightrain-windy",	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_drizzle_05_fc.png", 					label: "Light Rain and Windy"
                 attributeState "lightrain-windy!",	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_drizzle_05_fc.png", 					label: "Light Rain and Dangerously Windy"
                 attributeState "sleet",				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_freezing_rain_07_fc.png", 				label: "Sleet"
                 attributeState "lightsleet",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_freezing_rain_07_fc.png", 				label: "Light Sleet"
+                attributeState "heavysleet",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_freezing_rain_07_fc.png", 				label: "Heavy Sleet"
+                attributeState "rain-sleet",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_freezing_rain_07_fc.png", 				label: "Rain and Sleet"
+                attributeState "winter-mix",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_freezing_rain_07_fc.png", 				label: "Wintery Mix of Snow and Sleet"
+                attributeState "freezing-drizzle",	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_freezing_rain_07_fc.png", 				label: "Freezing Drizzle"
+                attributeState "freezing-rain",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_freezing_rain_07_fc.png", 				label: "Freezing Rain"
                 attributeState "snow", 				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_snow_10_fc.png", 						label: "Snow"
+                attributeState "heavysnow", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_snow_10_fc.png", 						label: "Heavy Snow"
+                attributeState "blizzard", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_snow_10_fc.png", 						label: "Blizzard"
+                attributeState "rain-snow", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_snow_10_fc.png", 						label: "Rain to Snow Showers"
                 attributeState "tstorms", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_thunderstorms_15_fc.png", 				label: "Thunderstorms"
+                attributeState "tstorms-iso", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_thunderstorms_15_fc.png", 				label: "Isolated Thunderstorms"
                 attributeState "thunderstorm", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_thunderstorms_15_fc.png", 				label: "Thunderstorm"
                 attributeState "windy",				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Windy"
                 attributeState "wind",				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Windy"
+                attributeState "sandstorm",			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Blowing Dust / Sandstorm"
+                attributeState "blowing-spray",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Windy / Blowing Spray"
                 attributeState "wind!",				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Dangerously Windy"
                 attributeState "wind-foggy",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Windy and Foggy"
                 attributeState "wind-overcast",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Windy and Overcast"
@@ -302,7 +324,9 @@ metadata {
                 attributeState "breezy-partlycloudy", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 						label: "Breezy and Partly Cloudy"
                 attributeState "breezy-mostlycloudy", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 						label: "Breezy and Mostly Cloudy"
                 attributeState "tornado",			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_tornado_17_fc.png",						label: "Tornado"
-                attributeState "hail",				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_flurries_11_fc.png",					label: "Hail"
+                attributeState "hail",				icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_flurries_11_fc.png",					label: "Hail Storm"
+                attributeState "thunder-hail",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_freezing_rain_07_fc.png",				label: "Thunder and Hail Storm"
+                attributeState "rain-hail",			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_freezing_rain_07_fc.png",				label: "Mixed Rain and Hail"
                 attributeState "nt_chanceflurries", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 			label: "Chance of Flurries"
                 attributeState "chancelightsnow-night", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 		label: "Chance of Light Snow"
                 attributeState "nt_chancerain", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_drizzle_105_fc.png", 				label: "Chance of Rain"
@@ -332,7 +356,8 @@ metadata {
                 attributeState "partly-cloudy-night", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_partly_cloudy_101_fc.png",		label: "Partly Cloudy"
                 attributeState "humid-partly-cloudy-night", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_partly_cloudy_101_fc.png", label: "Humid and Partly Cloudy"
                 attributeState "nt_partlysunny", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_mostly_cloudy_103_fc.png",		label: "Partly Clear"
-                attributeState "nt_flurries", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 			label: "Flurries"
+                attributeState "nt_scattered-flurries", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 			label: "Flurries"
+                attributeState "nt_flurries", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 			label: "Scattered Flurries"
                 attributeState "flurries-night", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 			label: "Flurries"
                 attributeState "lightsnow-night", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 			label: "Light Snow"
                 attributeState "nt_rain", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_rain_106_fc.png", 				label: "Rain"
@@ -346,20 +371,29 @@ metadata {
                 attributeState "heavyrain-windy-night!", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_rain_106_fc.png",			label: "Heavy Rain and Dangerously Windy"
                 attributeState "nt_drizzle", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_drizzle_105_fc.png", 				label: "Drizzle"
                 attributeState "drizzle-night", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_drizzle_105_fc.png", 				label: "Drizzle"
+                attributeState "nt_lightrain", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_drizzle_105_fc.png", 				label: "Light Rain"
                 attributeState "lightrain-night", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_drizzle_105_fc.png", 				label: "Light Rain"
+                attributeState "nt_scattered-rain", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_drizzle_105_fc.png", 				label: "Scattered Showers"
                 attributeState "lightrain-breezy-night", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_drizzle_105_fc.png", 		label: "Light Rain and Breezy"
                 attributeState "lightrain-windy-night", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_drizzle_105_fc.png", 			label: "Light Rain and Windy"
                 attributeState "lightrain-windy-night!", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_drizzle_105_fc.png", 		label: "Light Rain and Dangerously Windy"
                 attributeState "nt_sleet", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_freezing_rain_107_fc.png",		label: "Sleet"
                 attributeState "sleet-night", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_freezing_rain_107_fc.png",		label: "Sleet"
                 attributeState "lightsleet-night",	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_freezing_rain_107_fc.png",		label: "Sleet"
+                attributeState "nt_rain-sleet",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_freezing_rain_107_fc.png",		label: "Rain and Sleet"
+                attributeState "nt_thunder-hail",	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_freezing_rain_107_fc.png",		label: "Thunder and Hail Storm"
+                attributeState "nt_winter-mix",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_freezing_rain_107_fc.png",		label: "Winter Mix of Sleet and Snow"
+                attributeState "nt_freezing-drizzle", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_freezing_rain_107_fc.png",		label: "Freezing Drizzle"
+                attributeState "nt_freezing-rain", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_freezing_rain_107_fc.png",		label: "Freezing Rain"
                 attributeState "nt_snow", 			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_night_snow_110_fc.png,",				label: "Snow"
+                attributeState "nt_rain-snow", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_night_snow_110_fc.png,",				label: "Raqin and Snow Showers"
                 attributeState "snow-night", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_night_snow_110_fc.png,",				label: "Snow"
+                attributeState "nt_heavysnow", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_night_snow_110_fc.png,",				label: "Heavy Snow"
+                attributeState "nt_heavysnow", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons//weather_night_snow_110_fc.png,",				label: "Heavy Snow"
                 attributeState "nt_tstorms", 		icon:"shttps://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_thunderstorms_115_fc.png",		label: "Thunderstorms"
+                attributeState "nt_blizzard", 	icon:"shttps://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_thunderstorms_115_fc.png",			label: "Blizzard"
                 attributeState "nt_thunderstorm", 	icon:"shttps://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_thunderstorms_115_fc.png",		label: "Thunderstorm"
                 attributeState "thunderstorm-night", icon:"shttps://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_thunderstorms_115_fc.png",		label: "Thunderstorm"
-                attributeState "nt_cloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_cloudy_04_fc.png", 						label: "Overcast"
-                attributeState "cloudy-night", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_cloudy_04_fc.png", 						label: "Overcast"
                 attributeState "nt_windy",			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Windy"
                 attributeState "windy-night",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Windy"
                 attributeState "wind-night",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_windy_16.png", 							label: "Windy"
@@ -379,6 +413,7 @@ metadata {
                 attributeState "tornado-night",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_tornado_17_fc.png",						label: "Tornado"
                 attributeState "nt_hail",			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png",				label: "Hail"
                 attributeState "hail-night",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png",				label: "Hail"
+                attributeState "unknown",			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_updating_-2_fc.png",					label: "Not Available"
             }
         }    
         standardTile('moonPhase', 'device.moonPhase', decoration: 'flat', inactiveLabel: false, width: 1, height: 1) {
@@ -679,12 +714,15 @@ def updated() {
     unschedule(getDarkSkyWeather)
     unschedule(getPurpleAirAQI)
     unschedule(updateWundergroundTiles)
+    unschedule(updateTwcTiles)
     initialize()
 }
 
 def initialize() {
 	log.info 'Initializing...'
     def poweredBy = "MeteoBridge"
+    def endBy = ''
+    
     // Create the template using the latest preferences values (components defined at the bottom)
     state.meteoTemplate = ((fcstSource && (fcstSource == 'meteo'))? forecastTemplate : '') /* + yesterdayTemplate */ + currentTemplate
     if (debug) send(name: 'meteoTemplate', value: state.meteoTemplate, displayed: false, isStateChange: true)
@@ -704,22 +742,36 @@ def initialize() {
        	runIn(5,getMeteoWeather)						// Have to wait to let the state changes settle
     }
     
+    state.twcForTomorrow = false
+    state.wunderForTomorrow = false
+    if ((fcstSource) || (darkSkyKey == '')){
+    	if (fcstSource && (fcstSource == 'wunder')) {
+			state.wunderForTomorrow = (fcstSource && (fcstSource == 'meteo')) ? true : false
+    		runEvery10Minutes(updateWundergroundTiles)		// This doesn't change all that frequently
+    		updateWundergroundTiles()
+            if (debug) send(name: 'twcConditions', value: null, displayed: false)
+    		if (debug) send(name: 'twcForecast', value: null, displayed: false)
+            endBy= ' and Weather Underground'
+        } else if ((fcstSource && (fcstSource == 'twc')) || (darkSkyKey == '')) {
+    		state.twcForTomorrow = (fcstSource && (fcstSource == 'meteo')) ? true : false
+            runEvery10Minutes(updateTwcTiles)
+            updateTwcTiles()
+            if (debug) send(name: 'wundergroundObs', value: null, displayed: false)
+            endBy += ' and The Weather Company'
+    	}
+    }
     if (darkSkyKey != '') {
-    	poweredBy += ', Dark Sky'
+    	endBy = (endBy == '') ? ' and Dark Sky' : ', Dark Sky' + endBy
     	runEvery10Minutes(getDarkSkyWeather)			// Async Dark Sky current & forecast weather
         getDarkSkyWeather()
     } 
-    // if ((fcstSource && (fcstSource == 'wunder')) || (darkSkyKey == '')) {
-    state.wunderForTomorrow = (fcstSource && (fcstSource == 'meteo')) ? true : false
-   	runEvery10Minutes(updateWundergroundTiles)		// This doesn't change all that frequently
-    updateWundergroundTiles()
-    // }
     if (purpleID) {
-    	poweredBy += ', PurpleAir'
+    	endBy = (endBy == '') ? ' and PurpleAir' : ', PurpleAir' + endBy
     	runEvery3Minutes(getPurpleAirAQI)				// Async Air Quality
     	// getPurpleAirAQI()
     }
-    poweredBy += ' and Weather Underground'
+    
+    poweredBy += endBy
     send(name: 'attribution', value: poweredBy, displayed: false, isStateChange: true)
 }
 
@@ -737,9 +789,10 @@ def refresh() {
 	getMeteoWeather()
     if (darkSkyKey != '') {
     	getDarkSkyWeather()
-    }
-    if ((darkSkyKey == '') || (fcstSource && (fcstSource == 'wunder'))) {
-    	updateWundergroundTiles()
+    } 
+    if (fcstSource) {
+    	if (state.wunderForTomorrow || (fcstSource == 'wunder')) updateWundergroundTiles()
+        else if (state.twcForTomorrow || (fcstSource == 'twc')) updateTwcTiles()
     }
     getPurpleAirAQI() 
 }
@@ -1128,7 +1181,7 @@ def updateWundergroundTiles() {
     log.info "updateWundergroundTiles()"
     
     if (fcstSource && (fcstSource == 'wunder')) state.wunderForTomorrow = false
-    if (debug) log.debug 'Fetures: ' + features
+    if (debug) log.debug 'Features: ' + features
     
     def obs = get(features)		//	?.current_observation
     if (debug) send(name: 'wundergroundObs', value: obs, displayed: false)
@@ -1175,7 +1228,7 @@ def updateWundergroundTiles() {
             def popTdy = obs.forecast.simpleforecast?.forecastday[0]?.pop
             send(name: "highTempForecast", value: hiTTdy, unit: scale, descriptionText: "Forecast high temperature today is ${hiTTdy}°${scale}")
             send(name: "lowTempForecast", value: loTTdy, unit: scale, descriptionText: "Forecast high temperature today is ${loTTdy}°${scale}")
-            send(name: "avgHumForecast", value: avHTdy, unit: '%', descriptionText: "Forecast average humidity today is ${hiHTdy}%")
+            send(name: "avgHumForecast", value: avHTdy, unit: '%', descriptionText: "Forecast average humidity today is ${avHTdy}%")
             
             
             def rtd = (h=='"') ? roundIt(obs.forecast.simpleforecast.forecastday[0]?.qpf_allday?.in, hd+1) : roundIt(obs.forecast.simpleforecast.forecastday[0]?.qpf_allday?.mm, hd+1)
@@ -1184,8 +1237,8 @@ def updateWundergroundTiles() {
             	send(name: 'precipFcstDisplay', value:  "${rtdd}${h}", displayed: false)
             	send(name: 'precipForecast', value: rtd, unit: h, descriptionText: "Forecast precipitation today is ${rtd}${h}")
             } else {
-            	send(name: 'precipTomDisplay', value:  null, displayed: false)
-                send(name: 'precipTomorrow', value: null, displayed: false)
+            	send(name: 'precipFcstDisplay', value:  null, displayed: false)
+                send(name: 'precipForecast', value: null, displayed: false)
             }
             if (popTdy != null) {
             	send(name: "popFcstDisplay", value: "PoP\nTDY\n~${popTdy}%", descriptionText: "Probability of precipitation today is ${popTdy}%")
@@ -1201,7 +1254,7 @@ def updateWundergroundTiles() {
             def popTom = obs.forecast.simpleforecast?.forecastday[1]?.pop
             send(name: "highTempTomorrow", value: hiTTom, unit: scale, descriptionText: "Forecast high temperature tomorrow is ${hiTTom}°${scale}")
             send(name: "lowTempTomorrow", value: loTTom, unit: scale, descriptionText: "Forecast high temperature tomorrow is ${loTTom}°${scale}")
-            send(name: "avgHumTomorrow", value: avHTom, unit: '%', descriptionText: "Forecast average humidity tomorrow is ${hiHTom}%")
+            send(name: "avgHumTomorrow", value: avHTom, unit: '%', descriptionText: "Forecast average humidity tomorrow is ${avHTom}%")
             
             def rtom = (h=='"') ? roundIt(obs.forecast.simpleforecast.forecastday[1]?.qpf_allday?.in, hd+1) : roundIt(obs.forecast.simpleforecast.forecastday[1]?.qpf_allday?.mm, hd+1)
             def rtomd = roundIt(rtom, hd)
@@ -1223,10 +1276,133 @@ def updateWundergroundTiles() {
     }
 }
 
+// This updates the tiles with THe Weather Company data
+def updateTwcTiles() {
+	if (debug) log.debug "updateTwcTiles() entered"
+    def features = ''
+    def twcConditions = [:]
+    def twcForecast = [:]
+    
+    if (darkSkyKey == '') {
+    	twcConditions = getTwcConditions(twcLoc)
+        if (state.twcForTomorrow || (fcstSource && (fcstSource == 'twc'))) {
+        	twcForecast = getTwcForecast(twcLoc)
+        }
+    } else if (state.twcForTomorrow || (fcstSource && (fcstSource == 'twc'))) {
+    	twcForecast = getTwcForecast(twcLoc)
+    }
+    if ((twcConditions == [:]) && (twcForecast == [:])) return
+    log.info "updateTwcTiles()"
+    
+    if (fcstSource && (fcstSource == 'twc')) state.twcForTomorrow = false
+    // if (debug) log.debug 'Features: ' + features
+
+    // def obs = get(features)		//	?.current_observation
+    if (debug) send(name: 'twcConditions', value: JsonOutput.toJson(twcConditions), displayed: false)
+    if (debug) send(name: 'twcForecast', value: JsonOutput.toJson(twcForecast), displayed: false)
+    
+    if (twcConditions != [:]) {
+        def weatherIcon = translateTwcIcon( twcConditions.iconCode.toInteger() )
+        send(name: "weather", value: twcConditions.wxPhraseMedium, descriptionText: 'Conditions: ' + twcConditions.wxPhraseLong)
+        send(name: "weatherIcon", value: weatherIcon, displayed: false)
+	}
+
+	if (twcForecast != [:] ) {
+    	if (debug) log.trace "Parsing twcForecast"
+        def scale = getTemperatureScale()
+        String h = (height_units && (height_units == 'height_in')) ? '"' : 'mm'
+        int hd = (h == '"') ? 2 : 1		// digits to store & display
+
+        if (!state.twcForTomorrow) {
+            // Here we are NOT using Meteobridge's Davis weather forecast text/codes
+            if (twcForecast.daypart != null) {
+            	// def when = twcForecast.daypart.daypartName + ': '
+            	// def forecast = (twcForecast.narrative[0] != null) ? twcForecast.narrative[0] : 'N/A'
+                def forecast = (twcForecast.daypart.narrative[0] as List)[0]
+            	send(name: 'forecast', value: forecast, descriptionText: 'TWC forecast: ' + forecast)
+                if (debug) log.debug 'TWC forecast: ' + forecast
+                def twcIcon = (twcForecast.daypart.iconCode[0] as List)[0]
+            	send(name: "forecastCode", value: 'TWC forecast icon: ' + twcIcon, displayed: false)
+				if (debug) log.debug 'TWC forecast icon' + twcIcon
+
+        		def when = ((twcForecast.daypart.dayOrNight[0] as List)[0].toString() == 'N') ? 'TNT' : 'TDY'
+                if (debug) log.debug "When ${when}"
+        		def pop = (twcForecast.daypart.precipChance[0] as List)[0] // .toNumber()							// next half-day (night or day)
+                if (debug) log.debug "pop: ${pop}"
+        		if (pop?.isNumber()) {
+            		send(name: "popDisplay", value: "PoP\n${when}\n~${pop}%", descriptionText: "Probability of precipitation ${when} is ${pop}%")
+            		send(name: "pop", value: pop, unit: '%', displayed: false)
+        		} else {
+            		send(name: "popDisplay", value: null, displayed: false)
+            		send(name: "pop", value: null, displayed: false)
+        		}
+
+        		def hiTTdy = twcForecast.temperatureMax[0]
+        		def loTTdy = twcForecast.temperatureMin[0]
+                def hTdy = twcForecast.daypart.relativeHumidity[0] as List
+        		def avHTdy = roundIt((hTdy[0] + hTdy[1]) / 2.0, 0)
+                def pTdy = twcForecast.daypart.precipChance[0]
+        		def popTdy = roundIt((pTdy[0].toBigDecimal() / 2.0) + (pTdy[1]?.toBigDecimal() / 2.0), 0)		// next 24 hours
+        		send(name: "highTempForecast", value: hiTTdy, unit: scale, descriptionText: "Forecast high temperature today is ${hiTTdy}°${scale}")
+        		send(name: "lowTempForecast", value: loTTdy, unit: scale, descriptionText: "Forecast high temperature today is ${loTTdy}°${scale}")
+        		send(name: "avgHumForecast", value: avHTdy, unit: '%', descriptionText: "Forecast average humidity today is ${avHTdy}%")
+
+        		def rtd = roundIt( twcForecast.qpf[0], hd+1)
+        		def rtdd = roundIt(rtd, hd)
+        		if (rtdd != null) {
+            		send(name: 'precipFcstDisplay', value:  "${rtdd}${h}", displayed: false)
+            		send(name: 'precipForecast', value: rtd, unit: h, descriptionText: "Forecast precipitation today is ${rtd}${h}")
+        		} else {
+            		send(name: 'precipFcstDisplay', value:  null, displayed: false)
+            		send(name: 'precipForecast', value: null, displayed: false)
+        		}
+                
+        		if (popTdy != null) {
+            		send(name: "popFcstDisplay", value: "PoP\nTDY\n~${popTdy}%", descriptionText: "Probability of precipitation today is ${popTdy}%")
+            		send(name: "popForecast", value: popTdy, unit: '%', displayed: false)
+                } else {
+            		send(name: "popFcstDisplay", value: null, displayed: false)
+            		send(name: "popForecast", value: null, displayed: false)
+        		}
+
+        		def hiTTom = twcForecast.temperatureMax[1]
+        		def loTTom = twcForecast.temperatureMin[1]
+                def si = 2
+                if ((twcForecast.daypart.dayOrNight[0] as List)[0] == 'N') si = 1
+                def hTom = twcForecast.daypart.relativeHumidity[0] as List
+                def avHTom = roundIt((hTom[si].toBigDecimal() + hTom[si+1].toBigDecimal()) / 2.0, 0)
+                def pTom = twcForecast.daypart.precipChance[0] as List
+                def popTom = roundIt((pTom[si]?.toBigDecimal() / 2.0) + (pTom[si+1].toBigDecimal() / 2.0), 0)
+        		send(name: "highTempTomorrow", value: hiTTom, unit: scale, descriptionText: "Forecast high temperature tomorrow is ${hiTTom}°${scale}")
+        		send(name: "lowTempTomorrow", value: loTTom, unit: scale, descriptionText: "Forecast high temperature tomorrow is ${loTTom}°${scale}")
+        		send(name: "avgHumTomorrow", value: avHTom, unit: '%', descriptionText: "Forecast average humidity tomorrow is ${hiHTom}%")
+
+        		def rtom = roundIt(twcForecast.qpf[1], hd+1)
+        		def rtomd = roundIt(rtom, hd)
+        		if (rtom != null) {
+            		send(name: 'precipTomDisplay', value:  "${rtomd}${h}", displayed: false)
+            		send(name: 'precipTomorrow', value: rtom, unit: "${h}", descriptionText: "Forecast precipitation tomorrow is ${rtd}${h}")
+        		} else {
+            		send(name: 'precipTomDisplay', value:  null, displayed: false)
+            		send(name: 'precipTomorrow', value: null, displayed: false)
+        		}
+        		if (popTom != null) {
+            		send(name: "popTomDisplay", value: "PoP\nTMW\n~${popTom}%", descriptionText: "Probability of precipitation tomorrow is ${popTom}%")
+            		send(name: "popTomorrow", value: popTom, unit: '%', displayed: false)
+        		} else {
+            		send(name: "popTomDisplay", value: null, displayed: false)
+            		send(name: "popTomorrow", value: null, displayed: false)
+        		}		
+    		}
+    	}
+        if (debug) log.debug "Finished parsing twcForecast"
+    }
+}
+
 // This updates the tiles with Meteobridge data
 def updateWeatherTiles() {
+	log.trace "updateWeatherTiles() entered"
     if (state.meteoWeather != [:]) {
-        
         if (debug) log.debug "meteoWeather: ${state.meteoWeather}"
 		String unit = getTemperatureScale()
         String h = (height_units && (height_units == 'height_in')) ? '"' : 'mm'
@@ -1553,6 +1729,7 @@ def updateWeatherTiles() {
         	getMeteoWeather( true )
         }
 	}
+    log.trace "updateWeatherTiles() finished"
 }
 private updateMeteoTime(timeStr, stateName) {
 	def t = timeToday(timeStr, location.timeZone).getTime()
@@ -1568,6 +1745,161 @@ private clearMeteoTime(stateName) {
 }
 private get(feature) {
     getWeatherFeature(feature, zipCode)
+}
+private String translateTwcIcon( Integer iconNumber ) {
+    def isNight = false
+    if ((state.meteoWeather?.current?.isNight?.isNumber()) && (state.meteoWeather.current.isNight.toInteger() == 1)) isNight = true
+
+	switch( iconNumber ) {
+        case 0:							// Tornado
+            return (isNight ? 'nt_tornado' : 'tornado')
+            break;
+        case 1:							// Tropical Storm (hurricane icon) ***NEW***
+            return 'tropical-storm'
+            break;
+        case 2:							// Hurricane	***New***
+            return 'hurricane'
+            break;
+        case 3:							// Strong Storms
+            return (isNight ? 'nt_tstorms' : 'tstorms')
+            break;
+        case 4: 						// Thunder and Hail ***new text***
+            return (isNight ? 'nt_thunder-hail' : 'thunder-hail')
+            break;
+        case 5:							// Rain to Snow Showers
+            return (isNight ? 'nt_rain-snow' : 'rain-snow')
+            break;
+        case 6:							// Rain / Sleet
+            return (isNight ? 'nt_rain-sleet' : 'rain-sleet')
+            break;
+        case 7: 						// Wintry Mix Snow / Sleet
+            return (isNight ? 'nt_winter-mix' : 'winter-mix')
+            break;
+        case 8:							// Freezing Drizzle
+            return (isNight ? 'nt_freezing-drizzle' : 'freezing-drizzle')
+            break;
+        case 9:							// Drizzle
+            return (isNight ? 'nt_drizzle' : 'drizzle')
+            break;
+        case 10:						// Freezing Rain
+            return (isNight ? 'nt_freezing-rain' : 'freezing-rain')
+            break;
+        case 11:						// Light Rain
+            return (isNight ? 'nt_lightrain' : 'lightrain')
+            break;
+        case 12:						// Rain
+            return (isNight ? 'nt_rain' : 'rain')
+            break;
+        case 13:						// Scattered Flurries
+            return (isNight ? 'nt_scattered-flurries' : 'scattered-flurries')
+            break;
+        case 14:						// Light Snow
+            return ( isNight ? 'lightsnow-night' : 'lightsnow' )
+            break;
+        case 15:						// Blowing / Drifting Snow ***NEW***
+            return ( isNight ? 'nt_blowing-snow' : 'blowing-snow' )
+            break;
+        case 16:						// Snow
+            return ( isNight ? 'nt_snow' : 'snow' )
+            break;
+        case 17:						// Hail
+            return ( isNight ? 'nt_hail' : 'hail' )
+            break;
+        case 18:						// Sleet
+            return ( isNight ? 'nt_sleet' : 'sleet' )
+            break;
+        case 19: 						// Blowing Dust / Sandstorm
+            return 'sandstorm'
+            break;
+        case 20:						// Foggy
+            return 'fog'
+            break;
+        case 21:						// Haze / Windy
+            return 'hazy'
+            break;
+        case 22:						// Smoke / Windy
+            return 'smoke'
+            break;
+        case 23:						// Breezy
+            return ( isNight ? 'breezy-night' : 'breezy' )
+            break;
+        case 24:						// Blowing Spray / Windy
+            icon = 'blowing-spray'
+            //nt_blowing-spray
+            break;
+        case 25:						// Frigid / Ice Crystals
+            icon = 'frigid-ice'
+            //nt_frigid-ice
+            break;
+        case 26:						// Cloudy
+            return (isNight ? 'nt_cloudy' : 'cloudy' )
+            break;
+        case 27: 						// Mostly Cloudy (Night)
+            return 'nt_mostlycloudy'
+            break;
+        case 28:						// Mostly Cloudy (Day)
+            return 'mostlycloudy'
+            break;
+        case 29:						// Partly Cloudy (Night)
+            return 'nt_partlycloudy'
+            break;
+        case 30:						// Partly Cloudy (Day)
+            return 'partlycloudy'
+            break;
+        case 31: 						// Clear (Night)
+            return 'nt_clear'
+            break;
+        case 32:						// Sunny (Day)
+            return 'sunny'
+            break;
+        case 33:						// Fair / Mostly Clear (Night)
+            return 'nt_mostlysunny'
+            break;
+        case 34:						// Fair / Mostly Sunny (Day)
+            return 'mostlysunny'
+            break;
+        case 35:						// Mixed Rain & Hail
+            icon = 'rain-hail'
+            //nt_rain-hail
+            break;
+        case 36:						// Hot
+            return 'sunny'
+            break;
+        case 37: 						// Isolated Thunderstorms
+            return 'tstorms-iso'
+            break;
+        case 38:						// Thunderstorms
+            return ( isNight ? 'nt_tstorms' : 'tstorms' )
+            break;
+        case 39: 						// Scattered Showers (Day)
+            return 'scattered-showers'
+            break;
+        case 40: 						// Heavy Rain
+            return ( isNight ? 'heavyrain-night' : 'heavyrain' )
+            break;
+        case 41:						// Scattered Snow Showers (Day)
+            return 'scattered-snow'
+            break;
+        case 42:						// Heavy Snow
+            return ( isNight ? 'nt_heavysnow' : 'heavysnow' )
+            break;
+        case 43:						// Blizzard
+            return ( isNight ? 'nt_blizzard' : 'blizzard' )
+            break;
+        case 44:						// Not Available (N/A)
+            return 'unknown'
+            break;
+        case 45:						// Scattered Showers (Night)
+            return 'nt_scattered-rain'
+            break;
+        case 46:						// Scattered Snow Showers (Night)
+            return 'nt_scattered-snow'
+            break;
+        case 47:						// Scattered Thunderstorms (Night)
+            return 'nt_scattered-tstorms'
+            break;
+
+    }
 }
 private localDate(timeZone) {
     def df = new java.text.SimpleDateFormat("yyyy-MM-dd")
