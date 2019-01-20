@@ -48,13 +48,14 @@
 *	1.0.26 - Support additional detail for current weather
 *	1.0.27 - Added attribution labels
 *	1.0.28 - Added TWC weather (replacing WU soon)
+*	1.0.29 - Misc cleanup	
 *
 */
 include 'asynchttp_v1'
 import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 
-def getVersionNum() { return "1.0.28" }
+def getVersionNum() { return "1.0.29" }
 private def getVersionLabel() { return "Meteobridge Weather Station, version ${getVersionNum()}" }
 def getDebug() { false }
 def getFahrenheit() { true }		// Set to false for Celsius color scale
@@ -199,10 +200,11 @@ metadata {
         
         input ("purpleID", "string", title: 'Purple Air Sensor ID (optional)', description: 'Enter your PurpleAir Sensor ID', required: false, displayDuringSetup: true)
 
-        input ("darkSkyKey", "string", title: 'DarkSky Secret Key (optional)', description: 'Enter your DarkSky key (from darksky.net)', required: false, displayDuringSetup: true)
+        input ("darkSkyKey", "string", title: 'DarkSky Secret Key (optional)', description: 'Enter your DarkSky key (from darksky.net)', defaultValue: '', required: false, displayDuringSetup: true)
         
         input ("fcstSource", "enum", title: 'Select weather forecast source', description: "Select the source for your weather forecast (default=Meteobridge)", required: false, displayDuringSetup: true,
-        		options: (darkSkyKey!=''?['darksky':'Dark Sky']:[]) + ['meteo': 'Meteobridge', 'twc': 'The Weather Company', 'wunder': 'Weather Underground'])
+        		options: ( darkSkyKey!=null ? ['darksky':'Dark Sky', 'meteo': 'Meteobridge', 'twc': 'The Weather Company', 'wunder': 'Weather Underground'] :
+                			['meteo': 'Meteobridge', 'twc': 'The Weather Company', 'wunder': 'Weather Underground']))
                 
         input ("pres_units", "enum", title: "Barometric Pressure units (optional)", required: false, displayDuringSetup: true, description: "Select desired units:",
 			options: [
@@ -414,6 +416,8 @@ metadata {
                 attributeState "nt_hail",			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png",				label: "Hail"
                 attributeState "hail-night",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png",				label: "Hail"
                 attributeState "unknown",			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_updating_-2_fc.png",					label: "Not Available"
+                attributeState "hurricane",																																label: "Hurricane"
+                attributeState "tropical-storm",																														label: "Tropical Storm"
             }
         }    
         standardTile('moonPhase', 'device.moonPhase', decoration: 'flat', inactiveLabel: false, width: 1, height: 1) {
@@ -744,7 +748,8 @@ def initialize() {
     
     state.twcForTomorrow = false
     state.wunderForTomorrow = false
-    if ((fcstSource) || (darkSkyKey == '')){
+    log.debug "darkSkyKey: ${darkSkyKey}"
+    if ((fcstSource && (fcstSource == 'darksky')) || (darkSkyKey == '')){
     	if (fcstSource && (fcstSource == 'wunder')) {
 			state.wunderForTomorrow = (fcstSource && (fcstSource == 'meteo')) ? true : false
     		runEvery10Minutes(updateWundergroundTiles)		// This doesn't change all that frequently
@@ -760,7 +765,7 @@ def initialize() {
             endBy += ' and The Weather Company'
     	}
     }
-    if (darkSkyKey != '') {
+    if (fcstSource && (fcstSource == 'darksky') && (darkSkyKey != null)) {
     	endBy = (endBy == '') ? ' and Dark Sky' : ', Dark Sky' + endBy
     	runEvery10Minutes(getDarkSkyWeather)			// Async Dark Sky current & forecast weather
         getDarkSkyWeather()
@@ -835,6 +840,7 @@ def meteoWeatherCallback(physicalgraph.device.HubResponse hubResponse) {
         //log.debug "meteoWeatherCallback() json: " + hubResponse.json
         if (debug) send(name: 'meteoWeather', value: hubResponse.json, displayed: false, isStateChange: true)
         updateWeatherTiles()
+        log.trace "meteoWeatherCallback() finished"
         return true
     } else {
     	log.error "meteoWeatherCallback() - Missing hubResponse.json (${hubResponse.status})"
@@ -843,7 +849,7 @@ def meteoWeatherCallback(physicalgraph.device.HubResponse hubResponse) {
 }
 
 def getDarkSkyWeather() {
-	//log.trace "getDarkSkyWeather()"
+	log.trace "getDarkSkyWeather() entered"
     if( darkSkyKey == "" )
     {
         log.error "DarkSky Secret Key not found.  Please configure in preferences."
@@ -1162,6 +1168,7 @@ def darkSkyCallback(response, data) {
             send(name: "popTomorrow", value: null, displayed: false)
         }
     }
+    log.trace "darkSkyCallback() finished"
     return true
 }
 
@@ -1401,7 +1408,7 @@ def updateTwcTiles() {
 
 // This updates the tiles with Meteobridge data
 def updateWeatherTiles() {
-	log.trace "updateWeatherTiles() entered"
+	log.info "updateWeatherTiles() entered"
     if (state.meteoWeather != [:]) {
         if (debug) log.debug "meteoWeather: ${state.meteoWeather}"
 		String unit = getTemperatureScale()
@@ -2011,7 +2018,7 @@ private estimateLux() {
 }
 
 def getPurpleAirAQI() {
-	//log.trace "getPurpleAirAQI()"
+	log.info "getPurpleAirAQI() entered"
     if (!settings.purpleID) {
     	send(name: 'airQualityIndex', value: null, displayed: false)
         send(name: 'aqi', value: null, displayed: false)
@@ -2024,6 +2031,7 @@ def getPurpleAirAQI() {
         // body: ''
     ]
     asynchttp_v1.get(purpleAirResponse, params)
+    log.trace "getPurpleAirAQI() finished"
 }
 
 def purpleAirResponse(resp, data) {
@@ -2103,7 +2111,8 @@ def purpleAirResponse(resp, data) {
         //log.info "AQI: ${aqi}"
     	send(name: 'aqi', value: aqi, displayed: false)
     }
-    return
+    log.trace "purpleAirResponse() finished"
+    return true
 }
 
 private def pm_to_aqi(pm) {
