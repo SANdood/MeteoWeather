@@ -15,6 +15,9 @@ As most weather stations do no provide forecast details (hi/lo temps, humidity, 
 
 Significantly, EVERYTHING that this DTH displays in Tiles is also available programmatically to other SmartApps and WebCore pistons. You can thus build apps and integrations based off of changes in any attribute, from temperature and humidity to air quality, lunar phase, wind speed and the like. If interested, have a look at the `attributes` listed at the top of the source file for the names of the available data points.
 
+## IMPORTANT
+*It was discovered that MeteoBridge software version 3.2 (May 2017) **does not work** with this device. Most likely this is due to the number and complexity of attributes the code tries to collect from the meteobridge. Version 3.8 and later are known to work; if you are using an older version, please update to the latest by changing the `Version Control` settings on the `System` tab of your MeteoBridge management console.*
+
 ### New Features 29 July 2018
 MeteoWeather now displays forecast details (hi/low temps & humidity, plus rainfall forecast) for the rest of today and tomorrow, along with historical data for yesterday. This data is sourced from Weather Underground via the built-in SmartThings integration, or (optionally) from  Dark Sky, if you have a Dark Sky api key. Open the preferences to configure these new options.
 
