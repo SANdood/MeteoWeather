@@ -48,14 +48,15 @@
 *	1.0.26 - Support additional detail for current weather
 *	1.0.27 - Added attribution labels
 *	1.0.28 - Added TWC weather (replacing WU soon)
-*	1.0.29 - Misc cleanup	
+*	1.0.29 - Misc cleanup
+*	1.0.30 - More cleanup
 *
 */
 include 'asynchttp_v1'
 import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 
-def getVersionNum() { return "1.0.29" }
+def getVersionNum() { return "1.0.30" }
 private def getVersionLabel() { return "Meteobridge Weather Station, version ${getVersionNum()}" }
 def getDebug() { false }
 def getFahrenheit() { true }		// Set to false for Celsius color scale
@@ -749,7 +750,7 @@ def initialize() {
     state.twcForTomorrow = false
     state.wunderForTomorrow = false
     log.debug "darkSkyKey: ${darkSkyKey}"
-    if ((fcstSource && (fcstSource == 'darksky')) || (darkSkyKey == '')){
+    if ((fcstSource && (fcstSource == 'darksky')) || (darkSkyKey == null)){
     	if (fcstSource && (fcstSource == 'wunder')) {
 			state.wunderForTomorrow = (fcstSource && (fcstSource == 'meteo')) ? true : false
     		runEvery10Minutes(updateWundergroundTiles)		// This doesn't change all that frequently
@@ -757,7 +758,7 @@ def initialize() {
             if (debug) send(name: 'twcConditions', value: null, displayed: false)
     		if (debug) send(name: 'twcForecast', value: null, displayed: false)
             endBy= ' and Weather Underground'
-        } else if ((fcstSource && (fcstSource == 'twc')) || (darkSkyKey == '')) {
+        } else if ((fcstSource && (fcstSource == 'twc')) || (darkSkyKey == null)) {
     		state.twcForTomorrow = (fcstSource && (fcstSource == 'meteo')) ? true : false
             runEvery10Minutes(updateTwcTiles)
             updateTwcTiles()
@@ -792,7 +793,7 @@ def poll() { refresh() }
 def refresh() { 
 	state.today = null
 	getMeteoWeather()
-    if (darkSkyKey != '') {
+    if (darkSkyKey != null) {
     	getDarkSkyWeather()
     } 
     if (fcstSource) {
@@ -850,7 +851,7 @@ def meteoWeatherCallback(physicalgraph.device.HubResponse hubResponse) {
 
 def getDarkSkyWeather() {
 	log.trace "getDarkSkyWeather() entered"
-    if( darkSkyKey == "" )
+    if( darkSkyKey == null )
     {
         log.error "DarkSky Secret Key not found.  Please configure in preferences."
         return false
@@ -1176,7 +1177,7 @@ def darkSkyCallback(response, data) {
 def updateWundergroundTiles() {
 	log.trace "updateWundergroundTiles()"
     def features = ''
-    if (darkSkyKey == '') {
+    if (darkSkyKey == null) {
     	features = 'conditions'
         if (state.wunderForTomorrow || (fcstSource && (fcstSource == 'wunder'))) {
         	features += '/forecast'
