@@ -50,13 +50,14 @@
 *	1.0.28 - Added TWC weather (replacing WU soon)
 *	1.0.29 - Misc cleanup
 *	1.0.30 - More cleanup
+*	1.0.31 - Re-enabled Darksky as Forecast source
 *
 */
 include 'asynchttp_v1'
 import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 
-def getVersionNum() { return "1.0.30" }
+def getVersionNum() { return "1.0.31" }
 private def getVersionLabel() { return "Meteobridge Weather Station, version ${getVersionNum()}" }
 def getDebug() { false }
 def getFahrenheit() { true }		// Set to false for Celsius color scale
@@ -201,10 +202,11 @@ metadata {
         
         input ("purpleID", "string", title: 'Purple Air Sensor ID (optional)', description: 'Enter your PurpleAir Sensor ID', required: false, displayDuringSetup: true)
 
-        input ("darkSkyKey", "string", title: 'DarkSky Secret Key (optional)', description: 'Enter your DarkSky key (from darksky.net)', defaultValue: '', required: false, displayDuringSetup: true)
+        input ("darkSkyKey", "string", title: 'DarkSky Secret Key (optional)', description: 'Enter your DarkSky key (from darksky.net)', defaultValue: '', required: false, 
+        		displayDuringSetup: true, submitOnChange: true)
         
         input ("fcstSource", "enum", title: 'Select weather forecast source', description: "Select the source for your weather forecast (default=Meteobridge)", required: false, displayDuringSetup: true,
-        		options: ( darkSkyKey!=null ? ['darksky':'Dark Sky', 'meteo': 'Meteobridge', 'twc': 'The Weather Company', 'wunder': 'Weather Underground'] :
+        		options: ( true /*darkSkyKey!=null*/ ? ['darksky':'Dark Sky', 'meteo': 'Meteobridge', 'twc': 'The Weather Company', 'wunder': 'Weather Underground'] :
                 			['meteo': 'Meteobridge', 'twc': 'The Weather Company', 'wunder': 'Weather Underground']))
                 
         input ("pres_units", "enum", title: "Barometric Pressure units (optional)", required: false, displayDuringSetup: true, description: "Select desired units:",
@@ -768,7 +770,7 @@ def initialize() {
     }
     if (fcstSource && (fcstSource == 'darksky') && (darkSkyKey != null)) {
     	endBy = (endBy == '') ? ' and Dark Sky' : ', Dark Sky' + endBy
-    	runEvery10Minutes(getDarkSkyWeather)			// Async Dark Sky current & forecast weather
+    	runEvery15Minutes(getDarkSkyWeather)			// Async Dark Sky current & forecast weather
         getDarkSkyWeather()
     } 
     if (purpleID) {
@@ -840,7 +842,9 @@ def meteoWeatherCallback(physicalgraph.device.HubResponse hubResponse) {
 		state.meteoWeather = hubResponse.json
         //log.debug "meteoWeatherCallback() json: " + hubResponse.json
         if (debug) send(name: 'meteoWeather', value: hubResponse.json, displayed: false, isStateChange: true)
+        def dayNight = device.currentValue('isDay')
         updateWeatherTiles()
+        if (dayNight && (dayNight != device.currentValue('isDay'))) getDarkSkyWeather()		// We need to change day/night icons
         log.trace "meteoWeatherCallback() finished"
         return true
     } else {
@@ -889,6 +893,7 @@ def darkSkyCallback(response, data) {
     if (debug) send(name: 'darkSkyWeather', value: response.json, displayed: false, isStateChange: true)
 
 	// current weather icon/state
+    // DarkSky doesn't do "night" conditions, but we can make them if we know that it is night...
     def icon = darkSky.currently.icon
     def isNight = (state.meteoWeather?.current?.isNight?.isNumber() && (state.meteoWeather.current.isNight.toInteger() == 1))
     if (isNight) {
@@ -1290,6 +1295,8 @@ def updateTwcTiles() {
     def features = ''
     def twcConditions = [:]
     def twcForecast = [:]
+    
+    if (debug) twcConditions = getTwcConditions(twcLoc)
     
     if (darkSkyKey == '') {
     	twcConditions = getTwcConditions(twcLoc)
