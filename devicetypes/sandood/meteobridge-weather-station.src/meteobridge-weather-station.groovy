@@ -58,12 +58,13 @@
 *	1.1.05 - Cleaned up another ST/HE quirk
 *	1.1.06 - Added Breezy and Foggy, cleaned up hubResponse returns
 *	1.1.07 - Cleaned up isST()/isHE()
+*	1.1.08 - Yet more fixes for application/json handling
 *
 */
 import groovy.json.*
 import java.text.SimpleDateFormat
 
-def getVersionNum() { return "1.1.07" }
+def getVersionNum() { return "1.1.08a" }
 def getVersionLabel() { return "Meteobridge Weather Station, version ${getVersionNum()}" }
 def getDebug() { false }
 def getFahrenheit() { true }		// Set to false for Celsius color scale
@@ -184,8 +185,9 @@ metadata {
         	attribute "iconErr", "string"				// For debugging only
         	attribute "wundergroundObs", "string"		// For debugging only
         	attribute "darkSkyWeather", "string"		// For debugging only
-            attribute "twcConditions", "string"
-            attribute "twcForecast", "string"
+            attribute "twcConditions", "string"			// For debugging only
+            attribute "twcForecast", "string"			// For debugging only
+            attribute "hubAction", "string"				// For debugging only
         }
         
         if (summaryText) attribute "summaryList", "string"
@@ -716,6 +718,8 @@ def parse(String description) {
 def installed() {
 	state.meteoWeather = [:]
     state.darkSwyWeather = [:]
+    state.twcConditions = [:]
+    state.twcForecast = [:]
 	initialize()
 }
 
@@ -770,22 +774,25 @@ def initialize() {
 			state.wunderForTomorrow = false 					// (fcstSource && (fcstSource == 'meteo')) ? true : false
     		//runEvery10Minutes(updateWundergroundTiles)		// This doesn't change all that frequently
     		//updateWundergroundTiles()
-            if (debug) send(name: 'twcConditions', value: null, displayed: false)
-    		if (debug) send(name: 'twcForecast', value: null, displayed: false)
-            if (debug) send(name: 'wundergroundObs', value: null, displayed: false)
+            send(name: 'twcConditions', value: null, displayed: false)
+    		send(name: 'twcForecast', value: null, displayed: false)
+            send(name: 'wundergroundObs', value: null, displayed: false)
             log.error "WeatherUnderground (getWeatherFeature) has been dreprecated by SmartThings and is no longer supported!"
             // endBy= ' and Weather Underground'
         } else if ((fcstSource && (fcstSource == 'twc')) || (darkSkyKey == null)) {
     		state.twcForTomorrow = (fcstSource && (fcstSource == 'meteo')) // ? true : false
             runEvery10Minutes(updateTwcTiles)
             updateTwcTiles()
-            if (debug) send(name: 'wundergroundObs', value: null, displayed: false)
+            send(name: 'wundergroundObs', value: null, displayed: false)
             endBy += ' and The Weather Company'
     	}
     }
     if (fcstSource && (fcstSource == 'darksky') && (darkSkyKey != null)) {
     	endBy = (endBy == '') ? ' and Dark Sky' : ', Dark Sky' + endBy
     	runEvery15Minutes(getDarkSkyWeather)			// Async Dark Sky current & forecast weather
+        send(name: 'twcConditions', value: null, displayed: false)
+    	send(name: 'twcForecast', value: null, displayed: false)
+        send(name: 'wundergroundObs', value: null, displayed: false)
         getDarkSkyWeather()
     } 
     if (purpleID) {
@@ -825,7 +832,7 @@ def getMeteoWeather( yesterday = false) {
     if (debug) log.trace "getMeteoWeather( ${yesterday} )"
     if (!state.meteoWeatherVersion || (state.meteoWeatherVersion != getVersionLabel())) {
     	// if the version level of the code changes, silently run updated() and initialize()
-        log.trace "Version changed, updating..."
+        log.info "Version changed, updating..."
     	updated()
         return
     }
@@ -837,8 +844,8 @@ def getMeteoWeather( yesterday = false) {
         hubAction = physicalgraph.device.HubAction.newInstance(
             method: "GET",
             path: "/cgi-bin/template.cgi",
-            headers: [ HOST: "${meteoIP}:${meteoPort}", 'Authorization': state.userpass ],
-            query: ['template': "{\"timestamp\":${now()},\"version\":[mbsystem-swversion:1.0]," + (yesterday ? yesterdayTemplate : state.meteoTemplate), 'contenttype': 'application/json;charset=utf-8' ],
+            headers: [ HOST: "${meteoIP}:${meteoPort}", 'Authorization': state.userpass, 'Accept': 'application/json,text/json', 'Content-Type': 'application/json', 'Accept-Charset': 'utf-8,iso-8859-1' ],
+            query: ['template': "{\"timestamp\":${now()},\"version\":[mbsystem-swversion:1.0]," + (yesterday ? yesterdayTemplate : state.meteoTemplate), 'contenttype': 'application/json' ],
             null,
             [callback: meteoWeatherCallback]
         )
@@ -846,13 +853,14 @@ def getMeteoWeather( yesterday = false) {
         hubAction = hubitat.device.HubAction.newInstance(
             method: "GET",
             path: "/cgi-bin/template.cgi",
-            headers: [ HOST: "${meteoIP}:${meteoPort}", 'Authorization': state.userpass ],
-            query: ['template': "{\"timestamp\":${now()},\"version\":[mbsystem-swversion:1.0]," + (yesterday ? yesterdayTemplate : state.meteoTemplate), 'contenttype': 'text/json;charset=iso-8859-1' ],
+            headers: [ HOST: "${meteoIP}:${meteoPort}", 'Authorization': state.userpass, 'Accept': 'text/json,application/json', 'Content-Type': 'text/json', 'Accept-Charset': 'iso-8859-1,utf-8' ],
+            query: ['template': "{\"timestamp\":${now()},\"version\":[mbsystem-swversion:1.0]," + (yesterday ? yesterdayTemplate : state.meteoTemplate), 'contenttype': 'text/json' ],
             null,
             [callback: meteoWeatherCallback]
         )
     }
-    // if (debug) log.debug "hubAction: ${hubAction}"
+    if (debug) send(name: 'hubAction', value: hubAction, displayed: false, isStateChange: true)
+    
     try {
         sendHubCommand(hubAction)
     } catch (Exception e) {
@@ -2116,6 +2124,9 @@ String getMeteoSensorID() {
     def sensorID = (version && ( version > 3.6 )) ? '*' : '0'
     if (debug) log.debug "version: ${version}, sensor: ${sensorID}"
     return sensorID   
+}
+def getContentType() {
+	return "&contenttype=text/plain;charset=iso-8859-1"
 }
 def getForecastTemplate() {
 	return '"forecast":{"text":"[forecast-text:]","code":[forecast-rule]},'
