@@ -52,12 +52,13 @@
 *	1.0.30 - More cleanup
 *	1.0.31 - Re-enabled Darksky as Forecast source
 *	1.1.01 - Now supports both SmartThings & Hubitat (automagically)
+*	1.1.02 - Corrected contentType for hubAction call
 *
 */
 import groovy.json.*
 import java.text.SimpleDateFormat
 
-def getVersionNum() { return "1.1.01" }
+def getVersionNum() { return "1.1.02" }
 private def getVersionLabel() { return "Meteobridge Weather Station, ${getPlatform()} version ${getVersionNum()}" }
 def getDebug() { false }
 def getFahrenheit() { true }		// Set to false for Celsius color scale
@@ -828,7 +829,7 @@ def getMeteoWeather( yesterday = false) {
             method: "GET",
             path: "/cgi-bin/template.cgi",
             headers: [ HOST: "${meteoIP}:${meteoPort}", 'Authorization': state.userpass ],
-            query: ['template': "{\"timestamp\":${now()},\"version\":[mbsystem-swversion:1.0]," + (yesterday ? yesterdayTemplate : state.meteoTemplate), 'contenttype': 'application/json;charset=utf-8' ],
+            query: ['template': "{\"timestamp\":${now()},\"version\":[mbsystem-swversion:1.0]," + (yesterday ? yesterdayTemplate : state.meteoTemplate), 'contenttype': /*'application/json;charset=utf-8'*/ 'text/json;charset=iso-8859-1' ],
             null,
             [callback: meteoWeatherCallback]
         )
@@ -837,7 +838,7 @@ def getMeteoWeather( yesterday = false) {
             method: "GET",
             path: "/cgi-bin/template.cgi",
             headers: [ HOST: "${meteoIP}:${meteoPort}", 'Authorization': state.userpass ],
-            query: ['template': "{\"timestamp\":${now()},\"version\":[mbsystem-swversion:1.0]," + (yesterday ? yesterdayTemplate : state.meteoTemplate), 'contenttype': 'application/json;charset=utf-8' ],
+            query: ['template': "{\"timestamp\":${now()},\"version\":[mbsystem-swversion:1.0]," + (yesterday ? yesterdayTemplate : state.meteoTemplate), 'contenttype': 'text/json;charset=iso-8859-1' ],
             null,
             [callback: meteoWeatherCallback]
         )
@@ -861,6 +862,7 @@ def meteoWeatherCallback(hubResponse) {
 	        if (debug) send(name: 'meteoWeather', value: hubResponse.json, displayed: false, isStateChange: true)
         } else if (hubResponse.body) {
         	// Hubitat doesn't do the json conversion for us
+            log.debug "hubResponse.body"
 			state.meteoWeather = new JsonSlurper().parseText(hubResponse.body)
         	if (debug) send(name: 'meteoWeather', value: hubResponse.body, displayed: false, isStateChange: true)
         }
