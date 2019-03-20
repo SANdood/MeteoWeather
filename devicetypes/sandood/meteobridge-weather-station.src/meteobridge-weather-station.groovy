@@ -53,12 +53,14 @@
 *	1.0.31 - Re-enabled Darksky as Forecast source
 *	1.1.01 - Now supports both SmartThings & Hubitat (automagically)
 *	1.1.02 - Corrected contentType for hubAction call
+*	1.1.03 - Removed wunderGround support (deprecated by SmartThings)
+*	1.1.04 - Fixed ST/HE autodetect logic
 *
 */
 import groovy.json.*
 import java.text.SimpleDateFormat
 
-def getVersionNum() { return "1.1.02" }
+def getVersionNum() { return "1.1.04" }
 private def getVersionLabel() { return "Meteobridge Weather Station, ${getPlatform()} version ${getVersionNum()}" }
 def getDebug() { false }
 def getFahrenheit() { true }		// Set to false for Celsius color scale
@@ -194,7 +196,7 @@ metadata {
     	input(name: 'updateMins', type: 'enum', description: "Select the update frequency", 
         	title: "${getVersionLabel()}\n\nUpdate frequency (minutes)", displayDuringSetup: true, defaultValue: '5', options: ['1', '3', '5','10','15','30'], required: true)
         
-        input(name: "zipCode", type: "text", title: "Zip Code or PWS (optional)", required: false, displayDuringSetup: true, description: 'Specify Weather Underground ZipCode or pws:')
+        // input(name: "zipCode", type: "text", title: "Zip Code or PWS (optional)", required: false, displayDuringSetup: true, description: 'Specify Weather Underground ZipCode or pws:')
         input(name: "twcLoc", type: "text", title: "TWC Location code (optional)\n(US ZipCode or Lat,Lon)", required: false, displayDuringSetup: true, description: 'Leave blank for ST Hub location')
         
         if (!isHE) { input (description: "Setup Meteobridge access", title: "Meteobridge Setup", displayDuringSetup: true, type: 'paragraph', element: 'MeteoBridge') }
@@ -209,7 +211,7 @@ metadata {
         		displayDuringSetup: true, submitOnChange: true)
         
         input ("fcstSource", "enum", title: 'Select weather forecast source', description: "Select the source for your weather forecast (default=Meteobridge)", required: false, displayDuringSetup: true,
-        		options: ['darksky':'Dark Sky', 'meteo': 'Meteobridge', 'twc': 'The Weather Company', 'wunder': 'Weather Underground'])
+        		options: ['darksky':'Dark Sky', 'meteo': 'Meteobridge', 'twc': 'The Weather Company'])
                 
         input ("pres_units", "enum", title: "Barometric Pressure units (optional)", required: false, displayDuringSetup: true, description: "Select desired units:",
 			options: [
@@ -759,12 +761,14 @@ def initialize() {
     state.wunderForTomorrow = false
     if ((fcstSource && (fcstSource != 'darksky')) || (darkSkyKey == null)){
     	if (fcstSource && (fcstSource == 'wunder')) {
-			state.wunderForTomorrow = (fcstSource && (fcstSource == 'meteo')) ? true : false
-    		runEvery10Minutes(updateWundergroundTiles)		// This doesn't change all that frequently
-    		updateWundergroundTiles()
+			state.wunderForTomorrow = false 					// (fcstSource && (fcstSource == 'meteo')) ? true : false
+    		//runEvery10Minutes(updateWundergroundTiles)		// This doesn't change all that frequently
+    		//updateWundergroundTiles()
             if (debug) send(name: 'twcConditions', value: null, displayed: false)
     		if (debug) send(name: 'twcForecast', value: null, displayed: false)
-            endBy= ' and Weather Underground'
+            if (debug) send(name: 'wundergroundObs', value: null, displayed: false)
+            log.error "WeatherUnderground (getWeatherFeature) has been dreprecated by SmartThings and is no longer supported!"
+            // endBy= ' and Weather Underground'
         } else if ((fcstSource && (fcstSource == 'twc')) || (darkSkyKey == null)) {
     		state.twcForTomorrow = (fcstSource && (fcstSource == 'meteo')) // ? true : false
             runEvery10Minutes(updateTwcTiles)
@@ -803,8 +807,7 @@ def refresh() {
     	getDarkSkyWeather()
     } 
     if (fcstSource) {
-    	/* if (state.wunderForTomorrow || (fcstSource == 'wunder')) updateWundergroundTiles()
-        else */ if (state.twcForTomorrow || (fcstSource == 'twc')) updateTwcTiles()
+		if (state.twcForTomorrow || (fcstSource == 'twc')) updateTwcTiles()
     }
     getPurpleAirAQI() 
 }
@@ -1212,113 +1215,6 @@ def darkSkyCallback(response, data) {
 // This updates the tiles with Weather Underground data (deprecated)
 def updateWundergroundTiles() {
 	log.error "updateWundergroundTiles() is deprecated - use TWC weather instead"
-/*    def features = ''
-    if (darkSkyKey == null) {
-    	features = 'conditions'
-        if (state.wunderForTomorrow || (fcstSource && (fcstSource == 'wunder'))) {
-        	features += '/forecast'
-        }
-    } else if (state.wunderForTomorrow || (fcstSource && (fcstSource == 'wunder'))) {
-    	features = 'forecast'
-    }
-    if (features == '') return
-    log.info "updateWundergroundTiles()"
-    
-    if (fcstSource && (fcstSource == 'wunder')) state.wunderForTomorrow = false
-    if (debug) log.debug 'Features: ' + features
-    
-    def obs = get(features)		//	?.current_observation
-    if (debug) send(name: 'wundergroundObs', value: obs, displayed: false)
-    
-    if ((obs != [:]) && features.contains('conditions')) {
-    	if (obs.current_observation) {
-            def weatherIcon 
-            if (state.meteoWeather?.current?.isNight?.isNumber()) {
-                weatherIcon = (state.meteoWeather.current.isNight.toInteger() == 1) ? 'nt_' + obs.current_observation.icon : obs.current_observation.icon
-            } else {
-                weatherIcon = obs.icon_url.split("/")[-1].split("\\.")[0]
-            }
-            send(name: "weather", value: obs.current_observation.weather, descriptionText: 'Conditions: ' + obs.current_observation.weather)
-            send(name: "weatherIcon", value: weatherIcon, displayed: false)
-        }
-	}
-    if (obs && features.contains('forecast')) {
-    	// obs = get("forecast") // ?.forecast?.txt_forecast?.forecastday
-        if (obs.forecast) {
-        	def scale = getTemperatureScale()
-            String h = (height_units && (height_units == 'height_in')) ? '"' : 'mm'
-        	int hd = (h == '"') ? 2 : 1		// digits to store & display
-            
-            if (!state.wunderForTomorrow) {
-            	// Hre we are NOT using Meteobridge's Davis weather forecast text/codes
-            	def forecast = scale=='F' ? obs.forecast.txt_forecast?.forecastday[0]?.fcttext : obs.forecast.txt_forecast?.forecastday[0]?.fcttext_metric
-            	send(name: 'forecast', value: forecast, descriptionText: "Weather Underground Forecast: " + forecast)
-            	send(name: "forecastCode", value: obs.forecast.txt_forecast?.forecastday[0]?.icon, displayed: false)
-            }
-            
-            def when = obs.forecast.txt_forecast?.forecastday[0]?.title?.contains('Night') ? 'TNT' : 'TDY'
-            def pop = obs.forecast.txt_forecast?.forecastday[0].pop
-            if (pop.isNumber()) {
-            	send(name: "popDisplay", value: "PoP\n${when}\n~${pop}%", descriptionText: "Probability of precipitation ${when} is ${pop}%")
-            	send(name: "pop", value: pop, unit: '%', displayed: false)
-            } else {
-            	send(name: "popDisplay", value: null, displayed: false)
-                send(name: "pop", value: null, displayed: false)
-            }
-            
-            def hiTTdy = scale=='F' ? obs.forecast.simpleforecast?.forecastday[0]?.high?.fahrenheit : obs.forecast.simpleforecast?.forecastday[0]?.high?.celsius
-            def loTTdy = scale=='F' ? obs.forecast.simpleforecast?.forecastday[0]?.low?.fahrenheit : obs.forecast.simpleforecast?.forecastday[0]?.low?.celsius
-            def avHTdy = obs.forecast.simpleforecast?.forecastday[0]?.avehumidity
-            def popTdy = obs.forecast.simpleforecast?.forecastday[0]?.pop
-            send(name: "highTempForecast", value: hiTTdy, unit: scale, descriptionText: "Forecast high temperature today is ${hiTTdy}°${scale}")
-            send(name: "lowTempForecast", value: loTTdy, unit: scale, descriptionText: "Forecast high temperature today is ${loTTdy}°${scale}")
-            send(name: "avgHumForecast", value: avHTdy, unit: '%', descriptionText: "Forecast average humidity today is ${avHTdy}%")
-            
-            
-            def rtd = (h=='"') ? roundIt(obs.forecast.simpleforecast.forecastday[0]?.qpf_allday?.in, hd+1) : roundIt(obs.forecast.simpleforecast.forecastday[0]?.qpf_allday?.mm, hd+1)
-            def rtdd = roundIt(rtd, hd)
-			if (rtdd != null) {
-            	send(name: 'precipFcstDisplay', value:  "${rtdd}${h}", displayed: false)
-            	send(name: 'precipForecast', value: rtd, unit: h, descriptionText: "Forecast precipitation today is ${rtd}${h}")
-            } else {
-            	send(name: 'precipFcstDisplay', value:  null, displayed: false)
-                send(name: 'precipForecast', value: null, displayed: false)
-            }
-            if (popTdy != null) {
-            	send(name: "popFcstDisplay", value: "PoP\nTDY\n~${popTdy}%", descriptionText: "Probability of precipitation today is ${popTdy}%")
-            	send(name: "popForecast", value: popTdy, unit: '%', displayed: false)
-            } else {
-            	send(name: "popFcstDisplay", value: null, displayed: false)
-                send(name: "popForecast", value: null, displayed: false)
-            }
-            
-            def hiTTom = scale=='F' ? obs.forecast.simpleforecast?.forecastday[1]?.high?.fahrenheit : obs.forecast.simpleforecast?.forecastday[1]?.high?.celsius
-            def loTTom = scale=='F' ? obs.forecast.simpleforecast?.forecastday[1]?.low?.fahrenheit : obs.forecast.simpleforecast?.forecastday[1]?.low?.celsius
-            def avHTom = obs.forecast.simpleforecast?.forecastday[1]?.avehumidity
-            def popTom = obs.forecast.simpleforecast?.forecastday[1]?.pop
-            send(name: "highTempTomorrow", value: hiTTom, unit: scale, descriptionText: "Forecast high temperature tomorrow is ${hiTTom}°${scale}")
-            send(name: "lowTempTomorrow", value: loTTom, unit: scale, descriptionText: "Forecast high temperature tomorrow is ${loTTom}°${scale}")
-            send(name: "avgHumTomorrow", value: avHTom, unit: '%', descriptionText: "Forecast average humidity tomorrow is ${avHTom}%")
-            
-            def rtom = (h=='"') ? roundIt(obs.forecast.simpleforecast.forecastday[1]?.qpf_allday?.in, hd+1) : roundIt(obs.forecast.simpleforecast.forecastday[1]?.qpf_allday?.mm, hd+1)
-            def rtomd = roundIt(rtom, hd)
-			if (rtom != null) {
-            	send(name: 'precipTomDisplay', value:  "${rtomd}${h}", displayed: false)
-            	send(name: 'precipTomorrow', value: rtom, unit: "${h}", descriptionText: "Forecast precipitation tomorrow is ${rtd}${h}")
-            } else {
-            	send(name: 'precipTomDisplay', value:  null, displayed: false)
-                send(name: 'precipTomorrow', value: null, displayed: false)
-            }
-            if (popTom != null) {
-            	send(name: "popTomDisplay", value: "PoP\nTMW\n~${popTom}%", descriptionText: "Probability of precipitation tomorrow is ${popTom}%")
-            	send(name: "popTomorrow", value: popTom, unit: '%', displayed: false)
-            } else {
-            	send(name: "popTomDisplay", value: null, displayed: false)
-                send(name: "popTomorrow", value: null, displayed: false)
-            }
-        }
-    }
-    */
 }
 
 // This updates the tiles with THe Weather Company data
@@ -1462,8 +1358,7 @@ def updateWeatherTiles() {
                 send(name: 'forecast', value: state.meteoWeather.forecast?.text, descriptionText: "Davis Forecast: " + state.meteoWeather.forecast?.text)
                 send(name: "forecastCode", value: state.meteoWeather.forecast?.code, descriptionText: "Davis Forecast Rule #${state.meteoWeather.forecast?.code}")
             } else {
-                // If the Meteobridge isn't providing a forecast (only provided for SOME Davis weather stations), use the one from WunderGround
-                // state.wunderForTomorrow = true
+                // If the Meteobridge isn't providing a forecast (only provided for SOME Davis weather stations), use the one from The Weather Channel
                 state.twcForTomorrow = true
             }
         }
@@ -1792,7 +1687,7 @@ private clearMeteoTime(stateName) {
     send(name: stateName + 'Epoch', value: "", displayed: false)
 }
 private get(feature) {
-    getWeatherFeature(feature, zipCode)
+    // getWeatherFeature(feature, zipCode)
 }
 private String translateTwcIcon( Integer iconNumber ) {
     def isNight = false
@@ -2196,8 +2091,8 @@ private def remap(value, fromLow, fromHigh, toLow, toHigh) {
 }
 
 private getPlatform() {
+	def p = "SmartThings"
     if(state?.hubPlatform == null) {
-    	def p = "SmartThings"
         try { [dummy: "dummyVal"]?.encodeAsJson(); } catch (e) { p = "Hubitat" }
         // p = (location?.hubs[0]?.id?.toString()?.length() > 5) ? "SmartThings" : "Hubitat"
         state?.hubPlatform = p
