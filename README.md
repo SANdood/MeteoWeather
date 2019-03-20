@@ -25,7 +25,7 @@ Since this DTH uses `hubAction()` for the MeteoBridge data, it will work only wh
 The GiThub repository for MeteoWeather is here: 
 https://github.com/SANdood/MeteoWeather 
 
-## Installation
+### Installation
 You can either manually copy/save the DTH code, or you can use the following for SmartThings' Github integration:
 
 > Owner:  SANdood
@@ -33,6 +33,11 @@ You can either manually copy/save the DTH code, or you can use the following for
 > Branch: master
 
 After loading and publishing the DTH, you will need to manually create the device from the Devices page in your IDE. Once created, use your Mobile App to configure the preferences for your new Meteobridge-based Weather Station!
+
+### Donations
+This work is fully Open Source, and available for use at no charge.
+
+While not required, I do humbly accept donations. If you would like to make an *optional* donation, I will be most grateful. You can make donations to me on PayPal at <https://paypal.me/BarryABurke>
 
 ### Change Log:
 
