@@ -55,12 +55,13 @@
 *	1.1.02 - Corrected contentType for hubAction call
 *	1.1.03 - Removed wunderGround support (deprecated by SmartThings)
 *	1.1.04 - Fixed ST/HE autodetect logic
+*	1.1.05 - Cleaned up another ST/HE quirk
 *
 */
 import groovy.json.*
 import java.text.SimpleDateFormat
 
-def getVersionNum() { return "1.1.04" }
+def getVersionNum() { return "1.1.05" }
 private def getVersionLabel() { return "Meteobridge Weather Station, ${getPlatform()} version ${getVersionNum()}" }
 def getDebug() { false }
 def getFahrenheit() { true }		// Set to false for Celsius color scale
@@ -832,7 +833,7 @@ def getMeteoWeather( yesterday = false) {
             method: "GET",
             path: "/cgi-bin/template.cgi",
             headers: [ HOST: "${meteoIP}:${meteoPort}", 'Authorization': state.userpass ],
-            query: ['template': "{\"timestamp\":${now()},\"version\":[mbsystem-swversion:1.0]," + (yesterday ? yesterdayTemplate : state.meteoTemplate), 'contenttype': /*'application/json;charset=utf-8'*/ 'text/json;charset=iso-8859-1' ],
+            query: ['template': "{\"timestamp\":${now()},\"version\":[mbsystem-swversion:1.0]," + (yesterday ? yesterdayTemplate : state.meteoTemplate), 'contenttype': 'application/json;charset=utf-8' ],
             null,
             [callback: meteoWeatherCallback]
         )
