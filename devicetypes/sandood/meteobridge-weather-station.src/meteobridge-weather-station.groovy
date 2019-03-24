@@ -741,6 +741,7 @@ def uninstalled() {
 
 def updated() {
 	log.info "Updated, settings: ${settings}"
+    if (!state.isST) { state.hubPlatform = null; getHubPlatform(); }
     state.meteoWeatherVersion = getVersionLabel()
 	unschedule(getMeteoWeather)
     unschedule(getDarkSkyWeather)
