@@ -32,13 +32,13 @@
 *	1.1.10 - Initial general release of SmartThings+Hubitat version
 *	1.1.11 - Added 'Possible Light Snow and Breezy/Windy', optimized icon calculations
 *	1.1.12 - Added Air Quality, indoor Temperature, Humidity and Dewpoint attributes (not displayed yet)
-*	1.1.13 - New SmartThings/Hubitat Portability Library
+*	1.1.13a - New SmartThings/Hubitat Portability Library
 *
 */
 import groovy.json.*
 import java.text.SimpleDateFormat
 
-private String getVersionNum() { return "1.1.13" }
+private String getVersionNum() { return "1.1.13a" }
 private String getVersionLabel() { return "Meteobridge Weather Station, version ${versionNum}" }
 private Boolean getDebug() { false }
 private Boolean getFahrenheit() { true }		// Set to false for Celsius color scale
