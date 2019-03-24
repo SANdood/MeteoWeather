@@ -20,37 +20,7 @@
 *	Date: 2017 - 2018
 *
 *	1.0.00 - Initial Release
-*	1.0.01 - Added PurpleAir Air Quality Index (AQI)
-*	1.0.02 - Fixed New/Full moon dislays
-*	1.0.03 - Cleanup of Preferences page
-*	1.0.04 - More tweaking to New/Full moon transitions
-*	1.0.05 - Fixed class casting errors
-*	1.0.06 - Renamed some attributes for naming consistency
-*	1.0.07 - Added pref setting for Lux scale
-*	1.0.08 - Increased internal attribute precision for temps & precipitation
-*	1.0.09 - Changed to use my Ecobee Suite weather icons (black circles)
-*	1.0.10 - Minor display tweaks
-*	1.0.11 - Optimized PurpleAir AQI calculations
-*	1.0.12 - Converted to BigDecimal for maximum precision
-*	1.0.13 - Adjust decimal precision for rainfall (e.g., inches.2 vs mm.1)
-*	1.0.14 - Option to use Dark Sky conditions/forecast instead of Weather Underground
-*	1.0.15 - Expanded almanac display to include weather forecast
-*	1.0.16 - Added today's forecast data
-*	1.0.17 - Extensive formatting changes
-*	1.0.18 - Fixed units on forecasted temps
-*	1.0.19 - Reduced normal-state log.info messages
-*	1.0.20 - Changed "SolRad"
-*	1.0.21 - Fixed temperature color on Android
-*	1.0.22 - Get yesterday data separately, only when day/night changes
-*	1.0.23 - Changed to get yesterday data when the date changes
-*	1.0.24 - Optimizations
-*	1.0.25 - Use update time from the Meteobridge instead of time we made the http request
-*	1.0.26 - Support additional detail for current weather
-*	1.0.27 - Added attribution labels
-*	1.0.28 - Added TWC weather (replacing WU soon)
-*	1.0.29 - Misc cleanup
-*	1.0.30 - More cleanup
-*	1.0.31 - Re-enabled Darksky as Forecast source
+8	<snip>
 *	1.1.01 - Now supports both SmartThings & Hubitat (automagically)
 *	1.1.02 - Corrected contentType for hubAction call
 *	1.1.03 - Removed wunderGround support (deprecated by SmartThings)
@@ -60,27 +30,60 @@
 *	1.1.07 - Cleaned up isST()/isHE()
 *	1.1.08 - Yet more fixes for application/json handling
 *	1.1.10 - Initial general release of SmartThings+Hubitat version
+*	1.1.11 - Added 'Possible Light Snow and Breezy/Windy', optimized icon calculations
+*	1.1.12 - Added Air Quality, indoor Temperature, Humidity and Dewpoint attributes (not displayed yet)
+*	1.1.13 - New SmartThings/Hubitat Portability Library
 *
 */
 import groovy.json.*
 import java.text.SimpleDateFormat
 
-def getVersionNum() { return "1.1.10" }
-def getVersionLabel() { return "Meteobridge Weather Station, version ${getVersionNum()}" }
-def getDebug() { false }
-def getFahrenheit() { true }		// Set to false for Celsius color scale
-def getCelsius() { !fahrenheit }
-def getSummaryText() { true }
-Boolean isST() { (state.hubPlatform == "SmartThings") }
-Boolean isHE() { (state.hubPlatform == "Hubitat") }
+private String getVersionNum() { return "1.1.13" }
+private String getVersionLabel() { return "Meteobridge Weather Station, version ${versionNum}" }
+private Boolean getDebug() { false }
+private Boolean getFahrenheit() { true }		// Set to false for Celsius color scale
+private Boolean getCelsius() { !fahrenheit }
+private Boolean getSummaryText() { true }
+
+// **************************************************************************************************************************
+// SmartThings/Hubitat Portability Library (SHPL)
+// Copyright (c) 2019, Barry A. Burke (storageanarchy@gmail.com)
+//
+// The following 3 calls are safe to use anywhere within a Device Handler or Application
+//  - these can be called (e.g., if (getPlatform() == 'SmartThings'), or referenced (i.e., if (platform == 'Hubitat') )
+//  - performance of the non-native platform is horrendous, so it is best to use these only in the metadata{} section of a
+//    Device Handler or Application
+//
+private String  getPlatform() { (physicalgraph?.device?.HubAction ? 'SmartThings' : 'Hubitat') }	// if (platform == 'SmartThings') ...
+private Boolean getIsST()     { (physicalgraph?.device?.HubAction ? true : false) }					// if (isST) ...
+private Boolean getIsHE()     { (hubitat?.device?.HubAction ? true : false) }						// if (isHE) ...
+//
+// The following 3 calls are ONLY for use within the Device Handler or Application runtime
+//  - they will throw an error at compile time if used within metadata, usually complaining that "state" is not defined
+//  - getHubPlatform() ***MUST*** be called from the installed() method, then use "state.hubPlatform" elsewhere
+//  - "if (state.isST)" is more efficient than "if (isSTHub)"
+//
+private String getHubPlatform() {
+    if (state?.hubPlatform == null) {
+        state.hubPlatform = getPlatform()						// if (hubPlatform == 'Hubitat') ... or if (state.hubPlatform == 'SmartThings')...
+        state.isST = state.hubPlatform.startsWith('S')			// if (state.isST) ...
+        state.isHE = state.hubPlatform.startsWith('H')			// if (state.isHE) ...
+    }
+    return state.hubPlatform
+}
+private Boolean getIsSTHub() { (state.isST) }					// if (isSTHub) ...
+private Boolean getIsHEHub() { (state.isHE) }					// if (isHEHub) ...
+//
+// **************************************************************************************************************************
 
 metadata {
     definition (name: "Meteobridge Weather Station", namespace: "sandood", author: "sandood") {
-        capability "Illuminance Measurement"
-        capability "Temperature Measurement"
+    	capability "Temperature Measurement"
         capability "Relative Humidity Measurement"
-        capability "Water Sensor"
         capability "Ultraviolet Index"
+        capability "Illuminance Measurement"
+		if (isST) {capability "Air Quality Sensor"} else {attribute "airQuality", "number"}
+		capability "Water Sensor"
         capability "Sensor"
         capability "Refresh"
 
@@ -94,6 +97,10 @@ metadata {
         attribute "solarRadiation", "number"
         attribute "evapotranspiration", "number"
         if (debug) attribute "etDisplay", "string"
+        
+        attribute "indoorTemperature", "number"
+        attribute "indoorHumidity", "number"
+        attribute "indoorDewpoint", "number"
         
         attribute "highTempYesterday", "number"
         attribute "lowTempYesterday", "number"
@@ -137,6 +144,7 @@ metadata {
         attribute "forecastCode", "string"
         
         attribute "airQualityIndex", "number"
+		// attribute "airQuality", "number"
         attribute "aqi", "number"
         attribute "wind", "number"
         attribute "windDirection", "string"
@@ -146,8 +154,6 @@ metadata {
         attribute "windDirectionDegrees", "number"
         if (debug) attribute "windinfo", "string"        
 
-        
-        
         attribute "sunrise", "string"
         attribute "sunriseAPM", "string"
         attribute "sunriseEpoch", "number"
@@ -203,10 +209,10 @@ metadata {
         	title: "${getVersionLabel()}\n\nUpdate frequency (minutes)", displayDuringSetup: true, defaultValue: '5', options: ['1', '3', '5','10','15','30'], required: true)
         
         // input(name: "zipCode", type: "text", title: "Zip Code or PWS (optional)", required: false, displayDuringSetup: true, description: 'Specify Weather Underground ZipCode or pws:')
-        input(name: "twcLoc", type: "text", title: "TWC Location code (optional)\n(US ZipCode or Lat,Lon)", required: false, displayDuringSetup: true, description: 'Leave blank for ST Hub location')
+        input(name: "twcLoc", type: "text", title: "TWC Location code (optional)\n(US ZipCode or Lat,Lon)", required: false, displayDuringSetup: true, description: "Leave blank for ${platform} Hub location")
         
-        //if (isST()) { input (description: "Setup Meteobridge access", title: "Meteobridge Setup", displayDuringSetup: true, type: 'paragraph', element: 'MeteoBridge') }
-        input "meteoIP", "string", title:"Meteobridge IP Address", description: "Eenter your Meteobridge's IP Address", required: true, displayDuringSetup: true
+        if (isST) { input (description: "Setup Meteobridge access", title: "Meteobridge Setup", displayDuringSetup: true, type: 'paragraph', element: 'MeteoBridge') }
+        input "meteoIP", "string", title:"Meteobridge IP Address", description: "Enter your Meteobridge's IP Address", required: true, displayDuringSetup: true
  		input "meteoPort", "string", title:"Meteobridge Port", description: "Enter your Meteobridge's Port", defaultValue: 80 , required: true, displayDuringSetup: true
     	input "meteoUser", "string", title:"Meteobridge User", description: "Enter your Meteobridge's username", required: true, defaultValue: 'meteobridge', displayDuringSetup: true
     	input "meteoPassword", "password", title:"Meteobridge Password", description: "Enter your Meteobridge's password", required: true, displayDuringSetup: true
@@ -259,7 +265,9 @@ metadata {
             tileAttribute("device.weatherIcon", key: "SECONDARY_CONTROL") {
             	//attributeState 'default', label: '${currentValue}', defaultState: true
                 attributeState "chanceflurries", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_flurries_11_fc.png", 					label: "Chance of Flurries"
-                attributeState "chancelightsnow", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_flurries_11_fc.png", 					label: "Chance of Light Snow"
+                attributeState "chancelightsnow", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_flurries_11_fc.png", 					label: "Possible Light Snow"
+                attributeState "chancelightsnowbreezy", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_flurries_11_fc.png", 				label: "Possible Light Snow and Breezy"
+                attributeState "chancelightsnowwindy", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_flurries_11_fc.png", 				label: "Possible Light Snow and Windy"
                 attributeState "chancerain", 		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_drizzle_05_fc.png", 					label: "Chance of Rain"
                 attributeState "chancedrizzle", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_drizzle_05_fc.png", 					label: "Chance of Drizzle"
                 attributeState "chancelightrain", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_drizzle_05_fc.png", 					label: "Chance of Light Rain"
@@ -344,7 +352,9 @@ metadata {
                 attributeState "thunder-hail",		icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_freezing_rain_07_fc.png",				label: "Thunder and Hail Storm"
                 attributeState "rain-hail",			icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_freezing_rain_07_fc.png",				label: "Mixed Rain and Hail"
                 attributeState "nt_chanceflurries", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 			label: "Chance of Flurries"
-                attributeState "chancelightsnow-night", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 		label: "Chance of Light Snow"
+                attributeState "chancelightsnow-night", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 		label: "Possible Light Snow"
+                attributeState "chancelightsnowbz-night", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 		label: "Possible Light Snow and Breezy"
+                attributeState "chancelightsnowwy-night", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_flurries_111_fc.png", 		label: "Possible Light Snow and Windy"
                 attributeState "nt_chancerain", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_drizzle_105_fc.png", 				label: "Chance of Rain"
                 attributeState "chancerain-night", 	icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_drizzle_105_fc.png", 				label: "Chance of Rain"
                 attributeState "chancelightrain-night", icon:"https://raw.githubusercontent.com/SANdood/Ecobee/master/icons/weather_night_drizzle_105_fc.png", 			label: "Chance of Light Rain"
@@ -514,10 +524,10 @@ metadata {
             state "default", label:'TDY\n(fcst)'
         }
         valueTile("yesterdayTile", "device.locationName", inactiveLabel: false, width: 1, height: 1, decoration: "flat", wordWrap: true) {
-            state "default", label:'YDA'
+            state "default", label:'YDA\n(act)'
         }
         valueTile("tomorrowTile", "device.locationName", inactiveLabel: false, width: 1, height: 1, decoration: "flat", wordWrap: true) {
-            state "default", label:'TMW'
+            state "default", label:'TMW\n(fcst)'
         }
         valueTile("precipYesterday", "device.precipYesterdayDisplay", inactiveLabel: false, width: 1, height: 1, decoration: "flat", wordWrap: true) {
             state "default", label:'Precip\nYDA\n${currentValue}'
@@ -717,8 +727,9 @@ def parse(String description) {
 }
 
 def installed() {
+	if (!state.hubPlatform) log.info "Installing on ${getHubPlatform()}"
 	state.meteoWeather = [:]
-    state.darkSwyWeather = [:]
+    state.darkSkyWeather = [:]
     state.twcConditions = [:]
     state.twcForecast = [:]
 	initialize()
@@ -730,7 +741,6 @@ def uninstalled() {
 
 def updated() {
 	log.info "Updated, settings: ${settings}"
-    if (!state.hubPlatform) log.info "Running on ${getPlatform()}"
     state.meteoWeatherVersion = getVersionLabel()
 	unschedule(getMeteoWeather)
     unschedule(getDarkSkyWeather)
@@ -750,7 +760,7 @@ def initialize() {
     if (debug) send(name: 'meteoTemplate', value: state.meteoTemplate, displayed: false, isStateChange: true)
     
     def userpassascii = meteoUser + ':' + meteoPassword
-	if (isST()) {
+	if (state.isST) {
     	state.userpass = "Basic " + userpassascii.encodeAsBase64().toString()
     } else {
     	state.userpass = "Basic " + userpassascii.bytes.encodeBase64().toString()
@@ -830,10 +840,10 @@ def configure() { updated() }
 
 // Execute the hubAction request
 def getMeteoWeather( yesterday = false) {
-    if (debug) log.trace "getMeteoWeather( ${yesterday} )"
+    log.trace "getMeteoWeather( yesterday = ${yesterday} )"
     if (!state.meteoWeatherVersion || (state.meteoWeatherVersion != getVersionLabel())) {
     	// if the version level of the code changes, silently run updated() and initialize()
-        log.info "Version changed, updating..."
+        log.info 'Version changed, updating...'
     	updated()
         return
     }
@@ -841,20 +851,20 @@ def getMeteoWeather( yesterday = false) {
     
     // Create the hubAction request based on updated preferences
     def hubAction
-    if (isST()) {
+    if (state.isST) {
         hubAction = physicalgraph.device.HubAction.newInstance(
-            method: "GET",
-            path: "/cgi-bin/template.cgi",
-            headers: [ HOST: "${meteoIP}:${meteoPort}", 'Authorization': state.userpass, 'Accept': 'application/json,text/json', 'Content-Type': 'application/json', 'Accept-Charset': 'utf-8,iso-8859-1' ],
+            method: 'GET',
+            path: '/cgi-bin/template.cgi',
+            headers: [ HOST: "${settings.meteoIP}:${settings.meteoPort}", 'Authorization': state.userpass, 'Accept': 'application/json,text/json', 'Content-Type': 'application/json', 'Accept-Charset': 'utf-8,iso-8859-1' ],
             query: ['template': "{\"timestamp\":${now()},\"version\":[mbsystem-swversion:1.0]," + (yesterday ? yesterdayTemplate : state.meteoTemplate), 'contenttype': 'application/json' ],
             null,
             [callback: meteoWeatherCallback]
         )
     } else {
         hubAction = hubitat.device.HubAction.newInstance(
-            method: "GET",
-            path: "/cgi-bin/template.cgi",
-            headers: [ HOST: "${meteoIP}:${meteoPort}", 'Authorization': state.userpass, 'Accept': 'text/json,application/json', 'Content-Type': 'text/json', 'Accept-Charset': 'iso-8859-1,utf-8' ],
+            method: 'GET',
+            path: '/cgi-bin/template.cgi',
+            headers: [ HOST: "${settings.meteoIP}:${settings.meteoPort}", 'Authorization': state.userpass, 'Accept': 'text/json,application/json', 'Content-Type': 'text/json', 'Accept-Charset': 'iso-8859-1,utf-8' ],
             query: ['template': "{\"timestamp\":${now()},\"version\":[mbsystem-swversion:1.0]," + (yesterday ? yesterdayTemplate : state.meteoTemplate), 'contenttype': 'text/json' ],
             null,
             [callback: meteoWeatherCallback]
@@ -865,14 +875,14 @@ def getMeteoWeather( yesterday = false) {
     try {
         sendHubCommand(hubAction)
     } catch (Exception e) {
-    	if (debug) log.error "sendHubCommand Exception ${e} on ${hubAction}"
+    	if (debug) log.error "getMeteoWeather() sendHubCommand Exception ${e} on ${hubAction}"
     }
-    if (debug) log.trace "getMeteoWeather() completed"
+    log.info 'getMeteoWeather() completed'
 }
 
 // Handle the hubAction response
 def meteoWeatherCallback(hubResponse) {
-	log.trace "meteoWeatherCallback() status: " + hubResponse.status
+	log.info "meteoWeatherCallback() status: " + hubResponse.status
     if (debug) log.debug "meteoWeatherCallback() headers: " + hubResponse.headers
     if (hubResponse.status == 200) {
 	    if (hubResponse.json) {
@@ -910,7 +920,7 @@ def getDarkSkyWeather() {
         query : [ exclude : excludes, units : units ],
         contentType : "application/json"
     ]
-    if (isST()) {
+    if (state.isST) {
     	include 'asynchttp_v1'
     	asynchttp_v1.get( darkSkyCallback, apiRequest )
     } else {
@@ -932,6 +942,7 @@ def darkSkyCallback(response, data) {
         log.error "darkSkyCallback: unable to retrieve data!"
         return
     }
+    boolean onST = hubPlatfrom == 'SmartThings'
     
     //log.info "currently icon: ${darkSky?.currently?.icon}, summary: ${darkSky?.currently?.summary}"
     //log.info "hourly icon: ${darkSky?.hourly?.icon}, summary: ${darkSky?.hourly?.summary}"
@@ -945,166 +956,177 @@ def darkSkyCallback(response, data) {
     // def isNight = (state.meteoWeather?.current?.isNight?.isNumber() && (state.meteoWeather.current.isNight.toInteger() == 1))
     def isNight = (state.meteoWeather?.current?.isNight == 1)
     
-    if (isNight) {
-    	switch(icon) {
-        	case 'rain':
-            	if (darkSky.currently.summary == 'Drizzle') {
-                	icon = 'drizzle-night'
-                } else if (darkSky.currently.summary.startsWith('Light Rain')) { 
-                	icon = 'lightrain'
-                    if 		(darkSky.currently.summary.contains('Breezy')) icon += '-breezy'
-                    else if (darkSky.currently.summary.contains('Windy'))  icon += '-windy'
-                    icon += '-night'
-                } else if (darkSky.currently.startsWith('Heavy Rain')) {
-                    icon = 'heavyrain'
-                    if 		(darkSky.currently.summary.contains('Breezy')) icon += '-breezy'
-                    else if (darkSky.currently.summary.contains('Windy'))  icon += '-windy'
-                    icon += '-night'
-                } else if (darkSky.currently.summary == 'Possible Light Rain') {
-                	icon = 'chancelightrain-night'
-            	} else if (darkSky.currently.summary.startsWith('Possible')) {
-                	icon = 'chancerain-night'
-                } else if (darksky.currently.summary.startsWith('Rain')) {
-                	if 		(darkSky.currently.summary.contains('Breezy')) icon += '-breezy'
-                    else if (darkSky.currently.summary.contains('Windy'))  icon += '-windy'
-                    icon += '-night'
-                }
-                if (darkSky.currently.summary.contains('Dangerously Windy')) icon += '!'
-                break;
-            case 'snow':
-            	if 		(darkSky.currently.summary == 'Light Snow') icon = 'lightsnow-night'
-                else if (darkSky.currently.summary == 'Flurries') icon = 'flurries-night'
-                else if (darkSky.currently.summary == 'Possible Light Snow') icon = 'chancelightsnow-night'
-                else if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancesnow-night'
-                break;
-            case 'sleet':
-            	if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancesleet-night'
-                else if (darkSky.currently.summary.startsWith('Light')) icon = 'lightsleet-night'
-            	else icon = 'sleet-night'
-                break;
-            case 'partly-cloudy':
-                if (darkSky.currently.summary.contains('Mostly Cloudy')) icon = 'mostly-cloudy'
-                if (darkSky.currently.summary.startsWith('Humid')) icon = 'humid-' + icon
-                icon += '-night'                    
-                break;
-            case 'partly-cloudy-night':
-            	if (darkSky.currently.summary.contains('Mostly Cloudy')) icon = 'mostly-cloudy-night'
-                if (darkSky.currently.summary.startsWith('Humid')) icon = 'humid-' + icon
-                break;
-            case 'thunderstorm':
-            	if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancetstorms-night'
-                break;
-            case 'cloudy':
-            if (darkSky.currently.summary.startsWith('Humid')) icon = 'humid-' + icon + '-night'
-                break;
-            case 'cloudy-night':
-            	if (darkSky.currently.summary.startsWith('Humid')) icon = 'humid-' + icon
-                break;
-            case 'clear':
-            case 'sunny':
-            	icon = 'clear-night'
-            case 'clear-night':
-            	if (darkSky.currently.summary.contains('Humid')) icon = 'humid-night'
-                break;
-        	case 'wind':
-                if (darkSky.currently.summary.contains('Windy')) {
-                	icon = 'wind-night'
-                    if 		(darkSky.currently.summary.contains('Overcast')) 	  icon = 'wind-overcast-night'
-                    else if (darkSky.currently.summary.contains('Mostly Cloudy')) icon = 'wind-mostlycloudy-night'
-                    else if (darkSky.currently.summary.contains('Partly Cloudy')) icon = 'wind-partlycloudy-night'
-                    else if (darksky.currently.summary.contains('Foggy'))		  icon = 'wind-foggy-night'
-                    if 		(darkSky.currently.summary.startsWith('Danger')) 	  icon += '!'
-                } else if (darkSky.currently.summary.contains('Breezy')) {
-                	icon = 'breezy-night'
-                    if 		(darkSky.currently.summary.contains('Overcast')) 	  icon = 'breezy-overcast-night'
-                    else if (darkSky.currently.summary.contains('Mostly Cloudy')) icon = 'breezy-mostlycloudy-night'
-                    else if (darkSky.currently.summary.contains('Partly Cloudy')) icon = 'breezy-partlycloudy-night'
-                    else if (darkSky.currently.summary.contains('Foggy'))		  icon = 'breezy-foggy-night'
-                    // if 		(darkSky.currently.summary.startsWith('Danger')) 	  icon += '!'
-        		}
-                break;
-            case 'fog':
-            case 'hail':
-            case 'breezy':
-            case 'tornado':
-            	icon = icon + '-night'		// adjust icons for night time that DarkSky doesn't
-                break;    
+    // Lots of comparisons to do - only do them if something changed
+    def iconChanged = ((state.isNight == null) || (state.isNight != isNight) || (darkSky?.currently?.summary == null) || (darkSky.currently.summary != device.currentValue('weather')))
+    if (iconChange) {
+    	state.isNight = isNight
+        if (isNight) {
+            switch(icon) {
+                case 'rain':
+                    if (darkSky.currently.summary == 'Drizzle') {
+                        icon = 'drizzle-night'
+                    } else if (darkSky.currently.summary.startsWith('Light Rain')) { 
+                        icon = 'lightrain'
+                        if 		(darkSky.currently.summary.contains('Breezy')) icon += '-breezy'
+                        else if (darkSky.currently.summary.contains('Windy'))  icon += '-windy'
+                        icon += '-night'
+                    } else if (darkSky.currently.startsWith('Heavy Rain')) {
+                        icon = 'heavyrain'
+                        if 		(darkSky.currently.summary.contains('Breezy')) icon += '-breezy'
+                        else if (darkSky.currently.summary.contains('Windy'))  icon += '-windy'
+                        icon += '-night'
+                    } else if (darkSky.currently.summary == 'Possible Light Rain') {
+                        icon = 'chancelightrain-night'
+                    } else if (darkSky.currently.summary.startsWith('Possible')) {
+                        icon = 'chancerain-night'
+                    } else if (darksky.currently.summary.startsWith('Rain')) {
+                        if 		(darkSky.currently.summary.contains('Breezy')) icon += '-breezy'
+                        else if (darkSky.currently.summary.contains('Windy'))  icon += '-windy'
+                        icon += '-night'
+                    }
+                    if (darkSky.currently.summary.contains('Dangerously Windy')) icon += '!'
+                    break;
+                case 'snow':
+                    if 		(darkSky.currently.summary == 'Light Snow') icon = 'lightsnow-night'
+                    else if (darkSky.currently.summary == 'Flurries') icon = 'flurries-night'
+                    else if (darkSky.currently.summary == 'Possible Light Snow') icon = 'chancelightsnow-night'
+                    else if (darkSky.current.cummary.startsWith('Possible Light Snow')) {
+                        if 	    (darkSky.currently.contains('Breezy')) icon = 'chancelightsnowbz-night'
+                        else if (darkSky.currently.contains('Windy')) icon = 'chancelightsnowwy-night'
+                    } else if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancesnow-night'
+                    break;
+                case 'sleet':
+                    if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancesleet-night'
+                    else if (darkSky.currently.summary.startsWith('Light')) icon = 'lightsleet-night'
+                    else icon = 'sleet-night'
+                    break;
+                case 'partly-cloudy':
+                    if (darkSky.currently.summary.contains('Mostly Cloudy')) icon = 'mostly-cloudy'
+                    if (darkSky.currently.summary.startsWith('Humid')) icon = 'humid-' + icon
+                    icon += '-night'                    
+                    break;
+                case 'partly-cloudy-night':
+                    if (darkSky.currently.summary.contains('Mostly Cloudy')) icon = 'mostly-cloudy-night'
+                    if (darkSky.currently.summary.startsWith('Humid')) icon = 'humid-' + icon
+                    break;
+                case 'thunderstorm':
+                    if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancetstorms-night'
+                    break;
+                case 'cloudy':
+                if (darkSky.currently.summary.startsWith('Humid')) icon = 'humid-' + icon + '-night'
+                    break;
+                case 'cloudy-night':
+                    if (darkSky.currently.summary.startsWith('Humid')) icon = 'humid-' + icon
+                    break;
+                case 'clear':
+                case 'sunny':
+                    icon = 'clear-night'
+                case 'clear-night':
+                    if (darkSky.currently.summary.contains('Humid')) icon = 'humid-night'
+                    break;
+                case 'wind':
+                    if (darkSky.currently.summary.contains('Windy')) {
+                        icon = 'wind-night'
+                        if 		(darkSky.currently.summary.contains('Overcast')) 	  icon = 'wind-overcast-night'
+                        else if (darkSky.currently.summary.contains('Mostly Cloudy')) icon = 'wind-mostlycloudy-night'
+                        else if (darkSky.currently.summary.contains('Partly Cloudy')) icon = 'wind-partlycloudy-night'
+                        else if (darksky.currently.summary.contains('Foggy'))		  icon = 'wind-foggy-night'
+                        if 		(darkSky.currently.summary.startsWith('Danger')) 	  icon += '!'
+                    } else if (darkSky.currently.summary.contains('Breezy')) {
+                        icon = 'breezy-night'
+                        if 		(darkSky.currently.summary.contains('Overcast')) 	  icon = 'breezy-overcast-night'
+                        else if (darkSky.currently.summary.contains('Mostly Cloudy')) icon = 'breezy-mostlycloudy-night'
+                        else if (darkSky.currently.summary.contains('Partly Cloudy')) icon = 'breezy-partlycloudy-night'
+                        else if (darkSky.currently.summary.contains('Foggy'))		  icon = 'breezy-foggy-night'
+                        // if 		(darkSky.currently.summary.startsWith('Danger')) 	  icon += '!'
+                    }
+                    break;
+                case 'fog':
+                case 'hail':
+                case 'breezy':
+                case 'tornado':
+                    icon = icon + '-night'		// adjust icons for night time that DarkSky doesn't
+                    break;    
+            }
+        } else { 
+            switch(icon) {
+                case 'rain':
+                    // rain=[Possible Light Rain, Light Rain, Rain, Heavy Rain, Drizzle, Light Rain and Breezy, Light Rain and Windy, 
+                    //       Rain and Breezy, Rain and Windy, Heavy Rain and Breezy, Rain and Dangerously Windy, Light Rain and Dangerously Windy],
+                    if (darkSky.currently.summary == 'Drizzle') {
+                        icon = 'drizzle'
+                    } else if 	(darkSky.currently.summary.startsWith('Light Rain')) { 
+                        icon = 'lightrain'
+                        if 		(darkSky.currently.summary.contains('Breezy')) icon += '-breezy'
+                        else if (darkSky.currently.summary.contains('Windy'))  icon += '-windy'
+                    } else if 	(darkSky.currently.startsWith('Heavy Rain')) {
+                        icon = 'heavyrain'
+                        if 		(darkSky.currently.summary.contains('Breezy')) icon += '-breezy'
+                        else if (darkSky.currently.summary.contains('Windy'))  icon += '-windy'
+                    } else if 	(darkSky.currently.summary == 'Possible Light Rain') {
+                        icon = 'chancelightrain'
+                    } else if 	(darkSky.currently.summary.startsWith('Possible')) {
+                        icon = 'chancerain'
+                    } else if 	(darksky.currently.summary.startsWith('Rain')) {
+                        if 		(darkSky.currently.summary.contains('Breezy')) icon += '-breezy'
+                        else if (darkSky.currently.summary.contains('Windy'))  icon += '-windy'
+                    }
+                    if (darkSky.currently.summary.contains('Dangerously Windy')) icon += '!'
+                    break;
+                case 'snow':
+                    if 		(darkSky.currently.summary == 'Light Snow')  icon = 'lightsnow'
+                    else if (darkSky.currently.summary == 'Flurries') icon = 'flurries'
+                    else if (darkSky.currently.summary == 'Possible Light Snow') icon = 'chancelightsnow'
+                    else if (darkSky.currently.summary.startsWith('Possible Light Snow')) {
+                        if      (darkSky.currently.summary.contains('Breezy')) icon = 'chancelightsnowbreezy'
+                        else if (darkSky.currently.summary.contains('Windy')) icon = 'changelightsnowwindy'
+                    } else if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancesnow'
+                    break;
+                case 'sleet':
+                    if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancesleet'
+                    else if (darkSky.currently.summary.startsWith('Light')) icon = 'lightsleet'
+                    break;
+                case 'thunderstorm':
+                    if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancetstorms'
+                    break;
+                case 'partly-cloudy':
+                case 'partly-cloudy-day':
+                    if (darkSky.currently.summary.contains('Mostly Cloudy')) icon = 'mostly-cloudy'
+                    if (darkSky.currently.summary.startsWith('Humid')) icon = 'humid-' + icon
+                    break;
+                case 'cloudy':
+                case 'cloudy-day':
+                    if (darkSky.currently.summary.startsWith('Humid')) icon = 'humid-' + icon
+                    break;
+                case 'clear':
+                case 'clear-day':
+                    if (darkSky.currently.summary == 'Humid') icon = 'humid'
+                    break;
+                case 'wind':
+                // wind=[Windy and Overcast, Windy and Mostly Cloudy, Windy and Partly Cloudy, Breezy and Mostly Cloudy, Breezy and Partly Cloudy, 
+                // Breezy and Overcast, Breezy, Windy, Dangerously Windy and Overcast, Windy and Foggy, Dangerously Windy and Partly Cloudy, Breezy and Foggy]}
+                    if (darkSky.currently.summary.contains('Windy')) {
+                        // icon = 'wind'
+                        if 		(darkSky.currently.summary.contains('Overcast')) 	  icon = 'wind-overcast'
+                        else if (darkSky.currently.summary.contains('Mostly Cloudy')) icon = 'wind-mostlycloudy'
+                        else if (darkSky.currently.summary.contains('Partly Cloudy')) icon = 'wind-partlycloudy'
+                        else if (darksky.currently.summary.contains('Foggy'))		  icon = 'wind-foggy'
+                        if 		(darkSky.currently.summary.startsWith('Danger')) 	  icon += '!'
+                    } else if (darkSky.currently.summary.contains('Breezy')) {
+                        icon = 'breezy'
+                        if 		(darkSky.currently.summary.contains('Overcast')) 	  icon = 'breezy-overcast'
+                        else if (darkSky.currently.summary.contains('Mostly Cloudy')) icon = 'breezy-mostlycloudy'
+                        else if (darkSky.currently.summary.contains('Partly Cloudy')) icon = 'breezy-partlycloudy'
+                        else if (darkSky.currently.summary.contains('Foggy')) 		  icon = 'breezy-foggy'
+                        //if 		(darkSky.currently.summary.startsWith('Danger')) 	  icon += '!'
+                    }
+                    break;
+            }
+
         }
-    } else { 
-    	switch(icon) {
-        	case 'rain':
-            	// rain=[Possible Light Rain, Light Rain, Rain, Heavy Rain, Drizzle, Light Rain and Breezy, Light Rain and Windy, 
-                //       Rain and Breezy, Rain and Windy, Heavy Rain and Breezy, Rain and Dangerously Windy, Light Rain and Dangerously Windy],
-            	if (darkSky.currently.summary == 'Drizzle') {
-                	icon = 'drizzle'
-                } else if 	(darkSky.currently.summary.startsWith('Light Rain')) { 
-                	icon = 'lightrain'
-                    if 		(darkSky.currently.summary.contains('Breezy')) icon += '-breezy'
-                    else if (darkSky.currently.summary.contains('Windy'))  icon += '-windy'
-                } else if 	(darkSky.currently.startsWith('Heavy Rain')) {
-                    icon = 'heavyrain'
-                    if 		(darkSky.currently.summary.contains('Breezy')) icon += '-breezy'
-                    else if (darkSky.currently.summary.contains('Windy'))  icon += '-windy'
-                } else if 	(darkSky.currently.summary == 'Possible Light Rain') {
-                	icon = 'chancelightrain'
-            	} else if 	(darkSky.currently.summary.startsWith('Possible')) {
-                	icon = 'chancerain'
-                } else if 	(darksky.currently.summary.startsWith('Rain')) {
-                	if 		(darkSky.currently.summary.contains('Breezy')) icon += '-breezy'
-                    else if (darkSky.currently.summary.contains('Windy'))  icon += '-windy'
-                }
-                if (darkSky.currently.summary.contains('Dangerously Windy')) icon += '!'
-                break;
-            case 'snow':
-            	if 		(darkSky.currently.summary == 'Light Snow')  icon = 'lightsnow'
-                else if (darkSky.currently.summary == 'Flurries') icon = 'flurries'
-                else if (darkSky.currently.summary == 'Possible Light Snow') icon = 'chancelightsnow'
-                else if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancesnow'
-                break;
-            case 'sleet':
-            	if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancesleet'
-                else if (darkSky.currently.summary.startsWith('Light')) icon = 'lightsleet'
-                break;
-            case 'thunderstorm':
-            	if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancetstorms'
-                break;
-        	case 'partly-cloudy':
-            case 'partly-cloudy-day':
-            	if (darkSky.currently.summary.contains('Mostly Cloudy')) icon = 'mostly-cloudy'
-                if (darkSky.currently.summary.startsWith('Humid')) icon = 'humid-' + icon
-                break;
-            case 'cloudy':
-            case 'cloudy-day':
-            	if (darkSky.currently.summary.startsWith('Humid')) icon = 'humid-' + icon
-                break;
-            case 'clear':
-            case 'clear-day':
-            	if (darkSky.currently.summary == 'Humid') icon = 'humid'
-                break;
-            case 'wind':
-            // wind=[Windy and Overcast, Windy and Mostly Cloudy, Windy and Partly Cloudy, Breezy and Mostly Cloudy, Breezy and Partly Cloudy, 
-            // Breezy and Overcast, Breezy, Windy, Dangerously Windy and Overcast, Windy and Foggy, Dangerously Windy and Partly Cloudy, Breezy and Foggy]}
-            	if (darkSky.currently.summary.contains('Windy')) {
-                	// icon = 'wind'
-                    if 		(darkSky.currently.summary.contains('Overcast')) 	  icon = 'wind-overcast'
-                    else if (darkSky.currently.summary.contains('Mostly Cloudy')) icon = 'wind-mostlycloudy'
-                    else if (darkSky.currently.summary.contains('Partly Cloudy')) icon = 'wind-partlycloudy'
-                    else if (darksky.currently.summary.contains('Foggy'))		  icon = 'wind-foggy'
-                    if 		(darkSky.currently.summary.startsWith('Danger')) 	  icon += '!'
-                } else if (darkSky.currently.summary.contains('Breezy')) {
-                	icon = 'breezy'
-                    if 		(darkSky.currently.summary.contains('Overcast')) 	  icon = 'breezy-overcast'
-                    else if (darkSky.currently.summary.contains('Mostly Cloudy')) icon = 'breezy-mostlycloudy'
-                    else if (darkSky.currently.summary.contains('Partly Cloudy')) icon = 'breezy-partlycloudy'
-                    else if (darkSky.currently.summary.contains('Foggy')) 		  icon = 'breezy-foggy'
-                    //if 		(darkSky.currently.summary.startsWith('Danger')) 	  icon += '!'
-        		}
-                break;
-        }
-    	
+        if (icon) send(name: "weatherIcon", value: icon, descriptionText: 'Conditions: ' + darkSky.currently.summary, isStateChange: true)
+        send(name: "weather", value: darkSky.currently.summary, displayed: false)
     }
-    send(name: "weatherIcon", value: icon, descriptionText: 'Conditions: ' + darkSky.currently.summary)
-    send(name: "weather", value: darkSky.currently.summary, displayed: false)
     
     // Forecasts
     if (fcstSource && (fcstSource == 'darksky')) {
@@ -1154,10 +1176,10 @@ def darkSkyCallback(response, data) {
         def pop = darkSky.hourly?.data[0]?.precipProbability
         if (pop != null) {
         	pop = roundIt((pop * 100), 0)	
-        	send(name: "popDisplay", value: "PoP\nnext hr\n~${pop}%", descriptionText: "Probability of precipitation in the next hour is ${pop}%")
+        	if (onST) send(name: "popDisplay", value: "PoP\nnext hr\n~${pop}%", descriptionText: "Probability of precipitation in the next hour is ${pop}%")
         	send(name: "pop", value: pop, unit: '%', displayed: false)
         } else {
-        	send(name: "popDisplay", value: null, displayed: false)
+        	if (onST) send(name: "popDisplay", value: null, displayed: false)
             send(name: "pop", value: null, displayed: false)
         }
         
@@ -1166,10 +1188,10 @@ def darkSkyCallback(response, data) {
         	rtd = roundIt((rtd * 24.0), hd+1)
         	def rtdd = roundIt(rtd, hd)
         	send(name: "precipForecast", value: rtd, unit: h, descriptionText: "Forecasted precipitation today is ${rtd}${h}")
-            send(name: "precipFcstDisplay", value: "${rtdd}${h}", displayed: false)
+            if (onST) send(name: "precipFcstDisplay", value: "${rtdd}${h}", displayed: false)
         } else {
         	send(name: "precipForecast", value: null, displayed: false)
-            send(name: "precipFcstDisplay", value: null, displayed: false)
+            if (onST) send(name: "precipFcstDisplay", value: null, displayed: false)
         }
         
         def hiTTda = roundIt(darkSky.daily?.data[0]?.temperatureHigh, 0)
@@ -1186,10 +1208,10 @@ def darkSkyCallback(response, data) {
         
         if (darkSky.daily?.data[0]?.precipProbability != null) {
         	def popTda = roundIt((darkSky.daily.data[0].precipProbability * 100), 0)
-        	send(name: "popFcstDisplay", value: "PoP\nTDY\n~${popTda}%", descriptionText: "Probability of precipitation today is ${popTda}%")
+        	if (onST) send(name: "popFcstDisplay", value: "PoP\nTDY\n~${popTda}%", descriptionText: "Probability of precipitation today is ${popTda}%")
         	send(name: "popForecast", value: popTda, unit: '%', displayed: false)
         } else {
-        	send(name: "popFcstDisplay", value: null, displayed: false)
+        	if (onST) send(name: "popFcstDisplay", value: null, displayed: false)
             send(name: "popForecast", value: null, displayed: false)
         }
         
@@ -1209,19 +1231,19 @@ def darkSkyCallback(response, data) {
       	if (darkSky.daily?.data[1]?.precipIntensity != null) {
 		    def rtom = roundIt((darkSky.daily.data[1].precipIntensity * 24.0), hd+1)
         	def rtomd = roundIt(rtom, hd)
-            send(name: 'precipTomDisplay', value: "${rtomd}${h}", displayed: false)
+            if (onST) send(name: 'precipTomDisplay', value: "${rtomd}${h}", displayed: false)
             send(name: 'precipTomorrow', value: rtom, unit: h, descriptionText: "Forecast precipitation tomorrow is ${rtom}${h}")
         } else {
-            send(name: 'precipTomDisplay', value:  null, displayed: false)
+            if (onST) send(name: 'precipTomDisplay', value:  null, displayed: false)
             send(name: 'precipTomorrow', value: null, displayed: false)
         }
         
         if (darkSky.daily?.data[1]?.precipProbability != null) {
         	def popTom = roundIt((darkSky.daily.data[1].precipProbability * 100), 0)
-            send(name: "popTomDisplay", value: "PoP\nTMW\n~${popTom}%", descriptionText: "Probability of precipitation tomorrow is ${popTom}%")
+            if (onST) send(name: "popTomDisplay", value: "PoP\nTMW\n~${popTom}%", descriptionText: "Probability of precipitation tomorrow is ${popTom}%")
             send(name: "popTomorrow", value: popTom, unit: '%', displayed: false)
         } else {
-            send(name: "popTomDisplay", value: null, displayed: false)
+            if (onST) send(name: "popTomDisplay", value: null, displayed: false)
             send(name: "popTomorrow", value: null, displayed: false)
         }
     }
@@ -1230,7 +1252,11 @@ def darkSkyCallback(response, data) {
 
 // This updates the tiles with Weather Underground data (deprecated)
 def updateWundergroundTiles() {
-	log.error "updateWundergroundTiles() is deprecated - use TWC weather instead"
+	if (hubPlatfrom == 'Hubitat') {
+    	log.warn "Weather Underground data is not available on Hubitat - please configure a different weather source"
+    } else {
+		log.warn "Weather Underground data is deprecated on SmartThings - please configure a different weather source"
+    }
 }
 
 // This updates the tiles with THe Weather Company data
@@ -1239,6 +1265,14 @@ def updateTwcTiles() {
     def features = ''
     def twcConditions = [:]
     def twcForecast = [:]
+    boolean onST
+    
+    if (hubPlatform == "Hubitat") {
+    	log.warn "TWC weather data is not available on Hubitat - please configure DarkSky or MeteoBridge for forecast data"
+        return
+    } else {
+    	onST = true
+    }
     
     if (debug) twcConditions = getTwcConditions(twcLoc)
     
@@ -1289,10 +1323,10 @@ def updateTwcTiles() {
         		def pop = (twcForecast.daypart.precipChance[0] as List)[0] // .toNumber()							// next half-day (night or day)
                 if (debug) log.debug "pop: ${pop}"
         		if (pop != null) {
-            		send(name: "popDisplay", value: "PoP\n${when}\n~${pop}%", descriptionText: "Probability of precipitation ${when} is ${pop}%")
+            		if (onST) send(name: "popDisplay", value: "PoP\n${when}\n~${pop}%", descriptionText: "Probability of precipitation ${when} is ${pop}%")
             		send(name: "pop", value: pop, unit: '%', displayed: false)
         		} else {
-            		send(name: "popDisplay", value: null, displayed: false)
+            		if (onST) send(name: "popDisplay", value: null, displayed: false)
             		send(name: "pop", value: null, displayed: false)
         		}
 
@@ -1309,18 +1343,18 @@ def updateTwcTiles() {
         		def rtd = roundIt( twcForecast.qpf[0], hd+1)
         		def rtdd = roundIt(rtd, hd)
         		if (rtdd != null) {
-            		send(name: 'precipFcstDisplay', value:  "${rtdd}${h}", displayed: false)
+            		if (onST) send(name: 'precipFcstDisplay', value:  "${rtdd}${h}", displayed: false)
             		send(name: 'precipForecast', value: rtd, unit: h, descriptionText: "Forecast precipitation today is ${rtd}${h}")
         		} else {
-            		send(name: 'precipFcstDisplay', value:  null, displayed: false)
+            		if (onST) send(name: 'precipFcstDisplay', value:  null, displayed: false)
             		send(name: 'precipForecast', value: null, displayed: false)
         		}
                 
         		if (popTdy != null) {
-            		send(name: "popFcstDisplay", value: "PoP\nTDY\n~${popTdy}%", descriptionText: "Probability of precipitation today is ${popTdy}%")
+            		if (onST) send(name: "popFcstDisplay", value: "PoP\nTDY\n~${popTdy}%", descriptionText: "Probability of precipitation today is ${popTdy}%")
             		send(name: "popForecast", value: popTdy, unit: '%', displayed: false)
                 } else {
-            		send(name: "popFcstDisplay", value: null, displayed: false)
+            		if (onST) send(name: "popFcstDisplay", value: null, displayed: false)
             		send(name: "popForecast", value: null, displayed: false)
         		}
 
@@ -1339,17 +1373,17 @@ def updateTwcTiles() {
         		def rtom = roundIt(twcForecast.qpf[1], hd+1)
         		def rtomd = roundIt(rtom, hd)
         		if (rtom != null) {
-            		send(name: 'precipTomDisplay', value:  "${rtomd}${h}", displayed: false)
+            		if (onST) send(name: 'precipTomDisplay', value:  "${rtomd}${h}", displayed: false)
             		send(name: 'precipTomorrow', value: rtom, unit: "${h}", descriptionText: "Forecast precipitation tomorrow is ${rtd}${h}")
         		} else {
-            		send(name: 'precipTomDisplay', value:  null, displayed: false)
+            		if (onST) send(name: 'precipTomDisplay', value:  null, displayed: false)
             		send(name: 'precipTomorrow', value: null, displayed: false)
         		}
         		if (popTom != null) {
-            		send(name: "popTomDisplay", value: "PoP\nTMW\n~${popTom}%", descriptionText: "Probability of precipitation tomorrow is ${popTom}%")
+            		if (onST) send(name: "popTomDisplay", value: "PoP\nTMW\n~${popTom}%", descriptionText: "Probability of precipitation tomorrow is ${popTom}%")
             		send(name: "popTomorrow", value: popTom, unit: '%', displayed: false)
         		} else {
-            		send(name: "popTomDisplay", value: null, displayed: false)
+            		if (onST) send(name: "popTomDisplay", value: null, displayed: false)
             		send(name: "popTomorrow", value: null, displayed: false)
         		}		
     		}
@@ -1367,6 +1401,7 @@ def updateWeatherTiles() {
         String h = (height_units && (height_units == 'height_in')) ? '"' : 'mm'
         int hd = (h = '"') ? 2 : 1		// digits to store & display
         int ud = unit=='F' ? 0 : 1
+        boolean onST = hubPlatform == 'SmartThings'
         
 	// Forecast Data
         if (!fcstSource || (fcstSource == 'meteo')) {
@@ -1410,11 +1445,13 @@ def updateWeatherTiles() {
                 }
             }
             
-            // Temperatures
+        // Temperatures
             def td = roundIt(state.meteoWeather.current.temperature, 2)
 			send(name: "temperature", value: td, unit: unit, descriptionText: "Temperature is ${td}°${unit}")
-            td = roundIt(state.meteoWeather.current.temperature, 1)
-            send(name: "temperatureDisplay", value: td.toString(), unit: unit, displayed: false, descriptionText: "Temperature is ${td}°${unit}")
+            if (onST) {
+            	td = roundIt(state.meteoWeather.current.temperature, 1)
+            	send(name: "temperatureDisplay", value: td.toString(), unit: unit, displayed: false, descriptionText: "Temperature display is ${td}°${unit}")
+            }
             def t = roundIt(state.meteoWeather.current.highTemp, ud)
             send(name: "highTemp", value: t, unit: unit, descriptionText: "High Temperature so far today is ${t}°${unit}")
             t = roundIt(state.meteoWeather.current.lowTemp, ud)
@@ -1422,52 +1459,59 @@ def updateWeatherTiles() {
             t = roundIt(state.meteoWeather.current.heatIndex, ud+1)
             if (state.meteoWeather.current.temperature != state.meteoWeather.current.heatIndex) {
             	send(name: "heatIndex", value: t , unit: unit, displayed: false)
-                send(name: "heatIndexDisplay", value: t + '°', unit: unit, descriptionText: "Heat Index is ${t}°${unit}")
+                if (onST) send(name: "heatIndexDisplay", value: t + '°', unit: unit, descriptionText: "Heat Index is ${t}°${unit}")
             } else {
             	send(name: 'heatIndex', value: t, unit: unit, descriptionText: "Heat Index is ${t}°${unit} - same as current temperature")
-                send(name: 'heatIndexDisplay', value: '=', displayed: false)
+                if (onST) send(name: 'heatIndexDisplay', value: '=', displayed: false)
             }
+            td = roundIt(state.meteoWeather.current.indoorTemp, 2)
+            send(name: "indoorTemperature", value: td, unit: unit, descriptionText: "Indoor Temperature is ${td}°${unit}")
 			t = roundIt(state.meteoWeather.current.dewpoint, ud+1)
             send(name: "dewpoint", value: t , unit: unit, descriptionText: "Dew Point is ${t}°${unit}")
+            t = roundIt(state.meteoWeather.current.indoorDew, 2)
+            send(name: "indoorDewpoint", value: t, unit: unit, descriptionText: "Indoor Dewpoint is ${t}°${unit}")
             t = roundIt(state.meteoWeather.current.windChill, ud+1)
             if (isStateChange( device, 'windChill', t as String)) {
             	if (t) {
                     if (state.meteoWeather.current.temperature != state.meteoWeather.current.windChill) {			
                         send(name: "windChill", value: t, unit: unit, displayed: false, isStateChange: true)
-                        send(name: "windChillDisplay", value: t + '°', unit: unit, descriptionText: "Wind Chill is ${t}°${unit}", isStateChange: true)
+                        if (onST) send(name: "windChillDisplay", value: t + '°', unit: unit, descriptionText: "Wind Chill is ${t}°${unit}", isStateChange: true)
                     } else {
                         send(name: 'windChill', value: t, unit: unit, descriptionText: "Wind Chill is ${t}°${unit} - same as current temperature", isStateChange: true)
-                        send(name: 'windChillDisplay', value: '=', displayed: false, isStateChange: true)
+                        if (onST) send(name: 'windChillDisplay', value: '=', displayed: false, isStateChange: true)
                     }
                 } else {
                     // if the Meteobridge weather station doesn't have an anemometer, we won't get a wind chill value
                     send(name: 'windChill', value: null, displayed: false, isStateChange: true)
-                    send(name: 'windChillDisplay', value: null, displayed: false, isStateChange: true)
+                    if (onST) send(name: 'windChillDisplay', value: null, displayed: false, isStateChange: true)
                 }
             }
             
-            // Humidity
+        // Humidity
             def hum = roundIt(state.meteoWeather.current.humidity, 0)
             if (isStateChange(device, 'humidity', hum as String)) {
 				send(name: "humidity", value: hum, unit: "%", descriptionText: "Humidity is ${hum}%", isStateChange: true)
             	hum = roundIt(state.meteoWeather.current.highHum, 0)
             	send(name: "highHumidity", value: hum, unit: "%", descriptionText: "High Humidity so far today is ${hum}%")
             	hum = roundIt(state.meteoWeather.current.lowHum, 0)
-            	send(name: "lowHumidity", value: hum, unit: "%", descriptionText: "Low Humidity so far today is ${hum}%")
+            	send(name: "lowHumidity", value: hum, unit: "%", descriptionText: "Low Humidity so far today is ${hum}%")                
             }
-            // Ultraviolet Index
+            hum = roundIt(state.meteoWeather.current.indoorHum, 0)
+            send(name: "indoorHumidity", value: hum, unit: "%", descriptionText: "Indoor Humidity is ${hum}%")
+            
+        // Ultraviolet Index
             if (state.meteoWeather.current.uvIndex != null) {
             	def uv = roundIt(state.meteoWeather.current.uvIndex, 1)		// UVindex can be null
                 if (isStateChange(device, 'uvIndex', uv as String)) {
             		send(name: "uvIndex", value: uv, unit: 'uvi', descriptionText: "UV Index is ${uv}", displayed: false, isStateChange: true)
-            		send(name: 'ultravioletIndex', value: uv, unit: 'uvi', isStateChange: true)
+            		send(name: 'ultravioletIndex', value: uv, unit: 'uvi', descriptionText: "Ultraviolet Index is ${uv}", isStateChange: true)
                 }
             } else {
             	send(name: "uvIndex", value: null, unit: 'uvi', displayed: false)
             	send(name: 'ultravioletIndex', value: null, unit: 'uvi', displayed: false)
             }           
            
-           	// Solar Radiation
+        // Solar Radiation
             if (state.meteoWeather.current.solarRadiation != null) {
             	def val = roundIt(state.meteoWeather.current.solarRadiation, 0)
 				send(name: "solarRadiation", value: val, unit: 'W/m²', descriptionText: "Solar radiation is ${val} W/m²")
@@ -1475,7 +1519,7 @@ def updateWeatherTiles() {
             	send(name: "solarRadiation", value: null, displayed: false)
             }
         
-			// Barometric Pressure   
+		// Barometric Pressure   
             def pr = roundIt(state.meteoWeather.current.pressure, 2)
             if (pr && isStateChange(device, 'pressure', pr as String)) {
                 def pressure_trend_text
@@ -1504,52 +1548,57 @@ def updateWeatherTiles() {
                 def pv = (pres_units && (pres_units == 'press_in')) ? 'inHg' : 'mmHg'
 
                 send(name: 'pressure', value: pr, unit: pv, displayed: false, descriptionText: "Barometric Pressure is ${pr} ${pv}", isStateChange: true)
-                send(name: 'pressureDisplay', value: "${pr}\n${pv}\n${pressure_trend_text}", descriptionText: "Barometric Pressure is ${pr} ${pv} - ${pressure_trend_text}", isStateChange: true)
+                if (onST) send(name: 'pressureDisplay', value: "${pr}\n${pv}\n${pressure_trend_text}", descriptionText: "Barometric Pressure is ${pr} ${pv} - ${pressure_trend_text}", isStateChange: true)
                 send(name: 'pressureTrend', value: pressure_trend_text, displayed: false, descriptionText: "Barometric Pressure trend is ${pressure_trend_text}")
        		}
             
-			// Rainfall
+		// Rainfall
         	def rlh = roundIt(state.meteoWeather.current.rainLastHour, hd+1)
-            def rlhd = roundIt(state.meteoWeather.current.rainLastHour, hd)
-            if (rlh != null) {
-				send(name: 'precipLastHourDisplay', value: "${rlhd}${h}", displayed: false)
-            	send(name: 'precipLastHour', value: rlh, unit: "${h}", descriptionText: "Precipitation in the Last Hour was ${rlh}${h}")
-            } else {
-            	send(name: 'precipLastHourDisplay', value: '0.00', displayed: false)
-            }
-            def rtd = roundIt(state.meteoWeather.current.rainfall, hd+1)
-            def rtdd = roundIt(state.meteoWeather.current.rainfall, hd)
-			if (rtd != null) {
-            	send(name: 'precipTodayDisplay', value:  "${rtdd}${h}", displayed: false)
-            	send(name: 'precipToday', value: rtd, unit: "${h}", descriptionText: "Precipitation so far today is ${rtd}${h}")
-            } else {
-            	send(name: 'precipTodayDisplay', value:  '0.00', displayed: false)
+            if (device.currentValue('precipLastHour') != rlh) {
+            // only if rainfall has changed
+                def rlhd = onST ? roundIt(state.meteoWeather.current.rainLastHour, hd) : null
+                if (rlh != null) {
+                    if (onST) send(name: 'precipLastHourDisplay', value: "${rlhd}${h}", displayed: false)
+                    send(name: 'precipLastHour', value: rlh, unit: "${h}", descriptionText: "Precipitation in the Last Hour was ${rlh}${h}")
+                } else {
+                    if (onST) send(name: 'precipLastHourDisplay', value: '0.00', displayed: false)
+                }
+                def rtd = roundIt(state.meteoWeather.current.rainfall, hd+1)
+                def rtdd = onST ? roundIt(state.meteoWeather.current.rainfall, hd) : null
+                if (rtd != null) {
+                    if (onST) send(name: 'precipTodayDisplay', value:  "${rtdd}${h}", displayed: false)
+                    send(name: 'precipToday', value: rtd, unit: "${h}", descriptionText: "Precipitation so far today is ${rtd}${h}")
+                } else {
+                    if (onST) send(name: 'precipTodayDisplay', value:  '0.00', displayed: false)
+                }
             }
             def rrt = roundIt(state.meteoWeather.current.rainRate, hd)
-            if (rrt != null) {
-            	send(name: 'precipRateDisplay', value:  "${rrt}${h}", displayed: false)
-            	send(name: 'precipRate', value: rrt, unit: "${h}/hr", descriptionText: "Precipitation rate is ${rrt}${h}/hour")
-            } else {
-            	send(name: 'precipRateDisplay', value:  '0.00', displayed: false)
+            if (device.currentValue('precipRate') != rrt) {
+                if (rrt != null) {
+                    if (onST) send(name: 'precipRateDisplay', value:  "${rrt}${h}", displayed: false)
+                    send(name: 'precipRate', value: rrt, unit: "${h}/hr", descriptionText: "Precipitation rate is ${rrt}${h}/hour")
+                } else {
+                    send(name: 'precipRateDisplay', value:  '0.00', displayed: false)
+                }
             }
             
-			// Wet/dry indicator - wet if there has been measurable rainfall within the last hour...
+		// Wet/dry indicator - wet if there has been measurable rainfall within the last hour...
             if ((state.meteoWeather.current.rainLastHour != null) && (state.meteoWeather.current.rainLastHour > 0.0)) {
 				sendEvent( name: 'water', value: "wet" )
 			} else {
 				sendEvent( name: 'water', value: "dry" )
 			}
             
-            // Evapotranspiration
+        // Evapotranspiration
             def et = roundIt(state.meteoWeather.current.evapotranspiration, hd+1)
             if (et != null) {
             	send(name: "evapotranspiration", value: et, unit: "${h}", descriptionText: "Evapotranspiration rate is ${et}${h}/hour")
-                send(name: "etDisplay", value: "${roundIt(et,hd)}${h}", displayed: false)
+                if (onST) send(name: "etDisplay", value: "${roundIt(et,hd)}${h}", displayed: false)
             } else {
-            	send(name: "etDisplay", value: null, displayed: false)
+            	if (onST) send(name: "etDisplay", value: null, displayed: false)
             }
 
-			// Wind 
+		// Wind 
 			String s = (speed_units && (speed_units == 'speed_mph')) ? 'mph' : 'kph'
             if (state.meteoWeather.current.windSpeed != null) {
             	def ws = roundIt(state.meteoWeather.current.windSpeed,0)
@@ -1571,12 +1620,13 @@ def updateWeatherTiles() {
                     send(name: "wind", value: null, displayed: false, isStateChange: true)
                 }
             }
-
+            
+        // Odds 'n' Ends
 			if (location.name != device.currentValue("locationName")) {
 				send(name: "locationName", value: location.name, isStateChange: true, descriptionText: "Location is ${loc}")
 			}
 
-			// Date stuff
+		// Date stuff
         	if ( ((state.meteoWeather.current.date != "") && (state.meteoWeather.current.date != device.currentValue('currentDate'))) ||
             		( /*(state.meteoWeather.current.sunrise != "") && */ (state.meteoWeather.current.sunrise != device.currentValue('sunrise'))) ||
                     ( /*(state.meteoWeather.current.sunset != "") && */ (state.meteoWeather.current.sunset != device.currentValue('sunset'))) ||
@@ -1609,11 +1659,11 @@ def updateWeatherTiles() {
                 }
 			}
             
-         	// Lux estimator - get every time, even if we aren't using Meteobridge data to calculate the lux
+        // Lux estimator - get every time, even if we aren't using Meteobridge data to calculate the lux
             def lux = estimateLux()
 			send(name: "illuminance", value: lux, unit: 'lux', descriptionText: "Illumination is ${lux} lux (est)")
             
-        	// Lunar Phases
+        // Lunar Phases
         	String xn = 'x'				// For waxing/waning below
             String phase = null
             def l = state.meteoWeather.current.lunarAge
@@ -1655,18 +1705,20 @@ def updateWeatherTiles() {
             }
             if (state.meteoWeather.current.lunarPercent != null) {
             	def lpct = roundIt(state.meteoWeather.current.lunarPercent, 0)
-            	send(name: 'lunarPercent', value: lpct, displayed: true, unit: '%', descriptionText: "The Moon is ${lpct}% lit")
-                String pcnt = sprintf('%03d', (roundIt((state.meteoWeather.current.lunarPercent / 5.0),0) * 5).toInteger())
-                String pname = 'Moon-wa' + xn + 'ing-' + pcnt
-                //log.debug "Lunar Percent by 5s: ${pcnt} - ${pname}"
-                send(name: 'moonPercent', value: pcnt, displayed: false, unit: '%')
-                send(name: 'moonDisplay', value: pname, displayed: false)
-                if (state.meteoWeather.current.lunarAge != null) {
-                	String sign = (xn == 'x') ? '+' : '-'
-                    if ((phase == 'New') || (phase == 'Full')) sign = ''
-                    String dir = (sign != '') ? "Wa${xn}ing" : phase
-                	String info = "${dir}\n${lpct}%\nDay ${state.meteoWeather.current.lunarAge}"
-                    send(name: 'moonInfo', value: info, displayed: false)
+                if (device.currentValue('lunarPercent') != lpct) {
+                    send(name: 'lunarPercent', value: lpct, displayed: true, unit: '%', descriptionText: "The Moon is ${lpct}% lit")
+                    String pcnt = sprintf('%03d', (roundIt((state.meteoWeather.current.lunarPercent / 5.0),0) * 5).toInteger())
+                    String pname = 'Moon-wa' + xn + 'ing-' + pcnt
+                    //log.debug "Lunar Percent by 5s: ${pcnt} - ${pname}"
+                    send(name: 'moonPercent', value: pcnt, displayed: false, unit: '%')
+                    send(name: 'moonDisplay', value: pname, displayed: false)
+                    if (state.meteoWeather.current.lunarAge != null) {
+                        String sign = (xn == 'x') ? '+' : '-'
+                        if ((phase == 'New') || (phase == 'Full')) sign = ''
+                        String dir = (sign != '') ? "Wa${xn}ing" : phase
+                        String info = "${dir}\n${lpct}%\nDay ${state.meteoWeather.current.lunarAge}"
+                        send(name: 'moonInfo', value: info, displayed: false)
+                    }
                 }
             }
         }
@@ -1973,6 +2025,7 @@ def getPurpleAirAQI() {
 	log.trace "getPurpleAirAQI() entered"
     if (!settings.purpleID) {
     	send(name: 'airQualityIndex', value: null, displayed: false)
+        send(name: 'airQuality', value: null, displayed: false)
         send(name: 'aqi', value: null, displayed: false)
         return
     }
@@ -1982,7 +2035,7 @@ def getPurpleAirAQI() {
         query: [show: settings.purpleID]
         // body: ''
     ]
-    if (isST()) {
+    if (state.isST) {
     	include 'asynchttp_v1'
     	asynchttp_v1.get(purpleAirResponse, params)
     } else {
@@ -2065,6 +2118,7 @@ def purpleAirResponse(resp, data) {
     if (aqi) {
     	def raqi = roundIt(aqi, 0)
     	send(name: 'airQualityIndex', value: raqi, descriptionText: "Air Quality Index is ${raqi}", displayed: false)
+        send(name: 'airQuality', value: raqi, descriptionText: "Air Quality is ${raqi}", displayed: false)
         if (aqi < 1.0) aqi = roundIt(aqi, 0)
         //log.info "AQI: ${aqi}"
     	send(name: 'aqi', value: aqi, descriptionText: "AQI is ${aqi}", displayed: false)
@@ -2105,18 +2159,6 @@ private def remap(value, fromLow, fromHigh, toLow, toHigh) {
     tmpValue *= scaleFactor;
     // Re-zero back to the to range
     return tmpValue + toLow;
-}
-
-private getPlatform() {
-	def p = "SmartThings"
-    if (state.hubPlatform == null) {
-        try { [dummy: "dummyVal"].encodeAsJson(); } catch (e) { p = "Hubitat" }
-        // p = (location?.hubs[0]?.id?.toString()?.length() > 5) ? "SmartThings" : "Hubitat"
-        // try { def foo = physicalgraph.device.hubAction.newInstance() } catch (e) { p = "Hubitat" }  // Not tested.
-        state.hubPlatform = p
-        log.debug "hubPlatform: (${state.hubPlatform})"
-    }
-    return state.hubPlatform
 }
 
 String getMeteoSensorID() {
