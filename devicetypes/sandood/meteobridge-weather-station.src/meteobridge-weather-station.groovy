@@ -32,13 +32,14 @@
 *	1.1.10 - Initial general release of SmartThings+Hubitat version
 *	1.1.11 - Added 'Possible Light Snow and Breezy/Windy', optimized icon calculations
 *	1.1.12 - Added Air Quality, indoor Temperature, Humidity and Dewpoint attributes (not displayed yet)
-*	1.1.13a - New SmartThings/Hubitat Portability Library
+*	1.1.13a- New SmartThings/Hubitat Portability Library
+*	1.1.14 - Fully utilize SHPL
 *
 */
 import groovy.json.*
 import java.text.SimpleDateFormat
 
-private String getVersionNum() { return "1.1.13a" }
+private String getVersionNum() { return "1.1.14" }
 private String getVersionLabel() { return "Meteobridge Weather Station, version ${versionNum}" }
 private Boolean getDebug() { false }
 private Boolean getFahrenheit() { true }		// Set to false for Celsius color scale
@@ -943,7 +944,6 @@ def darkSkyCallback(response, data) {
         log.error "darkSkyCallback: unable to retrieve data!"
         return
     }
-    boolean onST = hubPlatfrom == 'SmartThings'
     
     //log.info "currently icon: ${darkSky?.currently?.icon}, summary: ${darkSky?.currently?.summary}"
     //log.info "hourly icon: ${darkSky?.hourly?.icon}, summary: ${darkSky?.hourly?.summary}"
@@ -1177,10 +1177,10 @@ def darkSkyCallback(response, data) {
         def pop = darkSky.hourly?.data[0]?.precipProbability
         if (pop != null) {
         	pop = roundIt((pop * 100), 0)	
-        	if (onST) send(name: "popDisplay", value: "PoP\nnext hr\n~${pop}%", descriptionText: "Probability of precipitation in the next hour is ${pop}%")
+        	if (state.isST) send(name: "popDisplay", value: "PoP\nnext hr\n~${pop}%", descriptionText: "Probability of precipitation in the next hour is ${pop}%")
         	send(name: "pop", value: pop, unit: '%', displayed: false)
         } else {
-        	if (onST) send(name: "popDisplay", value: null, displayed: false)
+        	if (state.isST) send(name: "popDisplay", value: null, displayed: false)
             send(name: "pop", value: null, displayed: false)
         }
         
@@ -1189,10 +1189,10 @@ def darkSkyCallback(response, data) {
         	rtd = roundIt((rtd * 24.0), hd+1)
         	def rtdd = roundIt(rtd, hd)
         	send(name: "precipForecast", value: rtd, unit: h, descriptionText: "Forecasted precipitation today is ${rtd}${h}")
-            if (onST) send(name: "precipFcstDisplay", value: "${rtdd}${h}", displayed: false)
+            if (state.isST) send(name: "precipFcstDisplay", value: "${rtdd}${h}", displayed: false)
         } else {
         	send(name: "precipForecast", value: null, displayed: false)
-            if (onST) send(name: "precipFcstDisplay", value: null, displayed: false)
+            if (state.isST) send(name: "precipFcstDisplay", value: null, displayed: false)
         }
         
         def hiTTda = roundIt(darkSky.daily?.data[0]?.temperatureHigh, 0)
@@ -1209,10 +1209,10 @@ def darkSkyCallback(response, data) {
         
         if (darkSky.daily?.data[0]?.precipProbability != null) {
         	def popTda = roundIt((darkSky.daily.data[0].precipProbability * 100), 0)
-        	if (onST) send(name: "popFcstDisplay", value: "PoP\nTDY\n~${popTda}%", descriptionText: "Probability of precipitation today is ${popTda}%")
+        	if (state.isST) send(name: "popFcstDisplay", value: "PoP\nTDY\n~${popTda}%", descriptionText: "Probability of precipitation today is ${popTda}%")
         	send(name: "popForecast", value: popTda, unit: '%', displayed: false)
         } else {
-        	if (onST) send(name: "popFcstDisplay", value: null, displayed: false)
+        	if (state.isST) send(name: "popFcstDisplay", value: null, displayed: false)
             send(name: "popForecast", value: null, displayed: false)
         }
         
@@ -1232,19 +1232,19 @@ def darkSkyCallback(response, data) {
       	if (darkSky.daily?.data[1]?.precipIntensity != null) {
 		    def rtom = roundIt((darkSky.daily.data[1].precipIntensity * 24.0), hd+1)
         	def rtomd = roundIt(rtom, hd)
-            if (onST) send(name: 'precipTomDisplay', value: "${rtomd}${h}", displayed: false)
+            if (state.isST) send(name: 'precipTomDisplay', value: "${rtomd}${h}", displayed: false)
             send(name: 'precipTomorrow', value: rtom, unit: h, descriptionText: "Forecast precipitation tomorrow is ${rtom}${h}")
         } else {
-            if (onST) send(name: 'precipTomDisplay', value:  null, displayed: false)
+            if (state.isST) send(name: 'precipTomDisplay', value:  null, displayed: false)
             send(name: 'precipTomorrow', value: null, displayed: false)
         }
         
         if (darkSky.daily?.data[1]?.precipProbability != null) {
         	def popTom = roundIt((darkSky.daily.data[1].precipProbability * 100), 0)
-            if (onST) send(name: "popTomDisplay", value: "PoP\nTMW\n~${popTom}%", descriptionText: "Probability of precipitation tomorrow is ${popTom}%")
+            if (state.isST) send(name: "popTomDisplay", value: "PoP\nTMW\n~${popTom}%", descriptionText: "Probability of precipitation tomorrow is ${popTom}%")
             send(name: "popTomorrow", value: popTom, unit: '%', displayed: false)
         } else {
-            if (onST) send(name: "popTomDisplay", value: null, displayed: false)
+            if (state.isST) send(name: "popTomDisplay", value: null, displayed: false)
             send(name: "popTomorrow", value: null, displayed: false)
         }
     }
@@ -1266,13 +1266,10 @@ def updateTwcTiles() {
     def features = ''
     def twcConditions = [:]
     def twcForecast = [:]
-    boolean onST
     
-    if (hubPlatform == "Hubitat") {
+    if (stat.isHE) {
     	log.warn "TWC weather data is not available on Hubitat - please configure DarkSky or MeteoBridge for forecast data"
         return
-    } else {
-    	onST = true
     }
     
     if (debug) twcConditions = getTwcConditions(twcLoc)
@@ -1324,10 +1321,10 @@ def updateTwcTiles() {
         		def pop = (twcForecast.daypart.precipChance[0] as List)[0] // .toNumber()							// next half-day (night or day)
                 if (debug) log.debug "pop: ${pop}"
         		if (pop != null) {
-            		if (onST) send(name: "popDisplay", value: "PoP\n${when}\n~${pop}%", descriptionText: "Probability of precipitation ${when} is ${pop}%")
+            		if (state.isST) send(name: "popDisplay", value: "PoP\n${when}\n~${pop}%", descriptionText: "Probability of precipitation ${when} is ${pop}%")
             		send(name: "pop", value: pop, unit: '%', displayed: false)
         		} else {
-            		if (onST) send(name: "popDisplay", value: null, displayed: false)
+            		if (state.isST) send(name: "popDisplay", value: null, displayed: false)
             		send(name: "pop", value: null, displayed: false)
         		}
 
@@ -1344,18 +1341,18 @@ def updateTwcTiles() {
         		def rtd = roundIt( twcForecast.qpf[0], hd+1)
         		def rtdd = roundIt(rtd, hd)
         		if (rtdd != null) {
-            		if (onST) send(name: 'precipFcstDisplay', value:  "${rtdd}${h}", displayed: false)
+            		if (state.isST) send(name: 'precipFcstDisplay', value:  "${rtdd}${h}", displayed: false)
             		send(name: 'precipForecast', value: rtd, unit: h, descriptionText: "Forecast precipitation today is ${rtd}${h}")
         		} else {
-            		if (onST) send(name: 'precipFcstDisplay', value:  null, displayed: false)
+            		if (state.isST) send(name: 'precipFcstDisplay', value:  null, displayed: false)
             		send(name: 'precipForecast', value: null, displayed: false)
         		}
                 
         		if (popTdy != null) {
-            		if (onST) send(name: "popFcstDisplay", value: "PoP\nTDY\n~${popTdy}%", descriptionText: "Probability of precipitation today is ${popTdy}%")
+            		if (state.isST) send(name: "popFcstDisplay", value: "PoP\nTDY\n~${popTdy}%", descriptionText: "Probability of precipitation today is ${popTdy}%")
             		send(name: "popForecast", value: popTdy, unit: '%', displayed: false)
                 } else {
-            		if (onST) send(name: "popFcstDisplay", value: null, displayed: false)
+            		if (state.isST) send(name: "popFcstDisplay", value: null, displayed: false)
             		send(name: "popForecast", value: null, displayed: false)
         		}
 
@@ -1374,17 +1371,17 @@ def updateTwcTiles() {
         		def rtom = roundIt(twcForecast.qpf[1], hd+1)
         		def rtomd = roundIt(rtom, hd)
         		if (rtom != null) {
-            		if (onST) send(name: 'precipTomDisplay', value:  "${rtomd}${h}", displayed: false)
+            		if (state.isST) send(name: 'precipTomDisplay', value:  "${rtomd}${h}", displayed: false)
             		send(name: 'precipTomorrow', value: rtom, unit: "${h}", descriptionText: "Forecast precipitation tomorrow is ${rtd}${h}")
         		} else {
-            		if (onST) send(name: 'precipTomDisplay', value:  null, displayed: false)
+            		if (state.isST) send(name: 'precipTomDisplay', value:  null, displayed: false)
             		send(name: 'precipTomorrow', value: null, displayed: false)
         		}
         		if (popTom != null) {
-            		if (onST) send(name: "popTomDisplay", value: "PoP\nTMW\n~${popTom}%", descriptionText: "Probability of precipitation tomorrow is ${popTom}%")
+            		if (state.isST) send(name: "popTomDisplay", value: "PoP\nTMW\n~${popTom}%", descriptionText: "Probability of precipitation tomorrow is ${popTom}%")
             		send(name: "popTomorrow", value: popTom, unit: '%', displayed: false)
         		} else {
-            		if (onST) send(name: "popTomDisplay", value: null, displayed: false)
+            		if (state.isST) send(name: "popTomDisplay", value: null, displayed: false)
             		send(name: "popTomorrow", value: null, displayed: false)
         		}		
     		}
@@ -1402,7 +1399,6 @@ def updateWeatherTiles() {
         String h = (height_units && (height_units == 'height_in')) ? '"' : 'mm'
         int hd = (h = '"') ? 2 : 1		// digits to store & display
         int ud = unit=='F' ? 0 : 1
-        boolean onST = hubPlatform == 'SmartThings'
         
 	// Forecast Data
         if (!fcstSource || (fcstSource == 'meteo')) {
@@ -1449,7 +1445,7 @@ def updateWeatherTiles() {
         // Temperatures
             def td = roundIt(state.meteoWeather.current.temperature, 2)
 			send(name: "temperature", value: td, unit: unit, descriptionText: "Temperature is ${td}°${unit}")
-            if (onST) {
+            if (state.isST) {
             	td = roundIt(state.meteoWeather.current.temperature, 1)
             	send(name: "temperatureDisplay", value: td.toString(), unit: unit, displayed: false, descriptionText: "Temperature display is ${td}°${unit}")
             }
@@ -1460,10 +1456,10 @@ def updateWeatherTiles() {
             t = roundIt(state.meteoWeather.current.heatIndex, ud+1)
             if (state.meteoWeather.current.temperature != state.meteoWeather.current.heatIndex) {
             	send(name: "heatIndex", value: t , unit: unit, displayed: false)
-                if (onST) send(name: "heatIndexDisplay", value: t + '°', unit: unit, descriptionText: "Heat Index is ${t}°${unit}")
+                if (state.isST) send(name: "heatIndexDisplay", value: t + '°', unit: unit, descriptionText: "Heat Index is ${t}°${unit}")
             } else {
             	send(name: 'heatIndex', value: t, unit: unit, descriptionText: "Heat Index is ${t}°${unit} - same as current temperature")
-                if (onST) send(name: 'heatIndexDisplay', value: '=', displayed: false)
+                if (state.isST) send(name: 'heatIndexDisplay', value: '=', displayed: false)
             }
             td = roundIt(state.meteoWeather.current.indoorTemp, 2)
             send(name: "indoorTemperature", value: td, unit: unit, descriptionText: "Indoor Temperature is ${td}°${unit}")
@@ -1476,15 +1472,15 @@ def updateWeatherTiles() {
             	if (t) {
                     if (state.meteoWeather.current.temperature != state.meteoWeather.current.windChill) {			
                         send(name: "windChill", value: t, unit: unit, displayed: false, isStateChange: true)
-                        if (onST) send(name: "windChillDisplay", value: t + '°', unit: unit, descriptionText: "Wind Chill is ${t}°${unit}", isStateChange: true)
+                        if (state.isST) send(name: "windChillDisplay", value: t + '°', unit: unit, descriptionText: "Wind Chill is ${t}°${unit}", isStateChange: true)
                     } else {
                         send(name: 'windChill', value: t, unit: unit, descriptionText: "Wind Chill is ${t}°${unit} - same as current temperature", isStateChange: true)
-                        if (onST) send(name: 'windChillDisplay', value: '=', displayed: false, isStateChange: true)
+                        if (state.isST) send(name: 'windChillDisplay', value: '=', displayed: false, isStateChange: true)
                     }
                 } else {
                     // if the Meteobridge weather station doesn't have an anemometer, we won't get a wind chill value
                     send(name: 'windChill', value: null, displayed: false, isStateChange: true)
-                    if (onST) send(name: 'windChillDisplay', value: null, displayed: false, isStateChange: true)
+                    if (state.isST) send(name: 'windChillDisplay', value: null, displayed: false, isStateChange: true)
                 }
             }
             
@@ -1549,7 +1545,7 @@ def updateWeatherTiles() {
                 def pv = (pres_units && (pres_units == 'press_in')) ? 'inHg' : 'mmHg'
 
                 send(name: 'pressure', value: pr, unit: pv, displayed: false, descriptionText: "Barometric Pressure is ${pr} ${pv}", isStateChange: true)
-                if (onST) send(name: 'pressureDisplay', value: "${pr}\n${pv}\n${pressure_trend_text}", descriptionText: "Barometric Pressure is ${pr} ${pv} - ${pressure_trend_text}", isStateChange: true)
+                if (state.isST) send(name: 'pressureDisplay', value: "${pr}\n${pv}\n${pressure_trend_text}", descriptionText: "Barometric Pressure is ${pr} ${pv} - ${pressure_trend_text}", isStateChange: true)
                 send(name: 'pressureTrend', value: pressure_trend_text, displayed: false, descriptionText: "Barometric Pressure trend is ${pressure_trend_text}")
        		}
             
@@ -1557,26 +1553,26 @@ def updateWeatherTiles() {
         	def rlh = roundIt(state.meteoWeather.current.rainLastHour, hd+1)
             if (device.currentValue('precipLastHour') != rlh) {
             // only if rainfall has changed
-                def rlhd = onST ? roundIt(state.meteoWeather.current.rainLastHour, hd) : null
+                def rlhd = state.isST ? roundIt(state.meteoWeather.current.rainLastHour, hd) : null
                 if (rlh != null) {
-                    if (onST) send(name: 'precipLastHourDisplay', value: "${rlhd}${h}", displayed: false)
+                    if (state.isST) send(name: 'precipLastHourDisplay', value: "${rlhd}${h}", displayed: false)
                     send(name: 'precipLastHour', value: rlh, unit: "${h}", descriptionText: "Precipitation in the Last Hour was ${rlh}${h}")
                 } else {
-                    if (onST) send(name: 'precipLastHourDisplay', value: '0.00', displayed: false)
+                    if (state.isST) send(name: 'precipLastHourDisplay', value: '0.00', displayed: false)
                 }
                 def rtd = roundIt(state.meteoWeather.current.rainfall, hd+1)
-                def rtdd = onST ? roundIt(state.meteoWeather.current.rainfall, hd) : null
+                def rtdd = state.isST ? roundIt(state.meteoWeather.current.rainfall, hd) : null
                 if (rtd != null) {
-                    if (onST) send(name: 'precipTodayDisplay', value:  "${rtdd}${h}", displayed: false)
+                    if (state.isST) send(name: 'precipTodayDisplay', value:  "${rtdd}${h}", displayed: false)
                     send(name: 'precipToday', value: rtd, unit: "${h}", descriptionText: "Precipitation so far today is ${rtd}${h}")
                 } else {
-                    if (onST) send(name: 'precipTodayDisplay', value:  '0.00', displayed: false)
+                    if (state.isST) send(name: 'precipTodayDisplay', value:  '0.00', displayed: false)
                 }
             }
             def rrt = roundIt(state.meteoWeather.current.rainRate, hd)
             if (device.currentValue('precipRate') != rrt) {
                 if (rrt != null) {
-                    if (onST) send(name: 'precipRateDisplay', value:  "${rrt}${h}", displayed: false)
+                    if (state.isST) send(name: 'precipRateDisplay', value:  "${rrt}${h}", displayed: false)
                     send(name: 'precipRate', value: rrt, unit: "${h}/hr", descriptionText: "Precipitation rate is ${rrt}${h}/hour")
                 } else {
                     send(name: 'precipRateDisplay', value:  '0.00', displayed: false)
@@ -1594,9 +1590,9 @@ def updateWeatherTiles() {
             def et = roundIt(state.meteoWeather.current.evapotranspiration, hd+1)
             if (et != null) {
             	send(name: "evapotranspiration", value: et, unit: "${h}", descriptionText: "Evapotranspiration rate is ${et}${h}/hour")
-                if (onST) send(name: "etDisplay", value: "${roundIt(et,hd)}${h}", displayed: false)
+                if (state.isST) send(name: "etDisplay", value: "${roundIt(et,hd)}${h}", displayed: false)
             } else {
-            	if (onST) send(name: "etDisplay", value: null, displayed: false)
+            	if (state.isST) send(name: "etDisplay", value: null, displayed: false)
             }
 
 		// Wind 
