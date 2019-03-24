@@ -34,12 +34,13 @@
 *	1.1.12 - Added Air Quality, indoor Temperature, Humidity and Dewpoint attributes (not displayed yet)
 *	1.1.13a- New SmartThings/Hubitat Portability Library
 *	1.1.14 - Fully utilize SHPL
+*	1.1.15 - Fixed cloud cover calculation
 *
 */
 import groovy.json.*
 import java.text.SimpleDateFormat
 
-private String getVersionNum() { return "1.1.14" }
+private String getVersionNum() { return "1.1.15" }
 private String getVersionLabel() { return "Meteobridge Weather Station, version ${versionNum}" }
 private Boolean getDebug() { false }
 private Boolean getFahrenheit() { true }		// Set to false for Celsius color scale
@@ -948,7 +949,7 @@ def darkSkyCallback(response, data) {
     //log.info "currently icon: ${darkSky?.currently?.icon}, summary: ${darkSky?.currently?.summary}"
     //log.info "hourly icon: ${darkSky?.hourly?.icon}, summary: ${darkSky?.hourly?.summary}"
     def darkSky = response.json
-    // state.darkSkyWeather = response.json
+    state.darkSkyWeather = response.json?.currently
     if (debug) send(name: 'darkSkyWeather', value: response.json, displayed: false, isStateChange: true)
 
 	// current weather icon/state
