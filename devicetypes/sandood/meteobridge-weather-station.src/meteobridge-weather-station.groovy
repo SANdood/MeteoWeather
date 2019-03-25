@@ -35,12 +35,13 @@
 *	1.1.13a- New SmartThings/Hubitat Portability Library
 *	1.1.14 - Fully utilize SHPL
 *	1.1.15 - Fixed cloud cover calculation
+*	1.1.16 - Fixed TWC errors
 *
 */
 import groovy.json.*
 import java.text.SimpleDateFormat
 
-private String getVersionNum() { return "1.1.15" }
+private String getVersionNum() { return "1.1.16" }
 private String getVersionLabel() { return "Meteobridge Weather Station, version ${versionNum}" }
 private Boolean getDebug() { false }
 private Boolean getFahrenheit() { true }		// Set to false for Celsius color scale
@@ -1268,7 +1269,7 @@ def updateTwcTiles() {
     def twcConditions = [:]
     def twcForecast = [:]
     
-    if (stat.isHE) {
+    if (state.isHE) {
     	log.warn "TWC weather data is not available on Hubitat - please configure DarkSky or MeteoBridge for forecast data"
         return
     }
