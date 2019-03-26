@@ -1,4 +1,4 @@
-## ***Meteobridge Weather Station v1.1.15 released on March 24, 2019***
+## ***Meteobridge Weather Station v1.1.17 released on March 26, 2019***
 
 ### Overview
 Meteobridge (www.meteobridge.com) is an inexpensive Linux-based server that is used by many to collect data from your local weather station and distribute it to one or more public weather sources (including Weather Underground, for example). It supports data collection from a large number of popular weather stations, and it offers a local API that allows clients/applications to retrieve the latest weather station data on demand.
@@ -39,11 +39,24 @@ This work is fully Open Source, and available for use at no charge.
 
 While not required, I do humbly accept donations. If you would like to make an *optional* donation, I will be most grateful. You can make donations to me on PayPal at <https://paypal.me/BarryABurke>
 
+### Attributions
+#### Powered by DarkSky
+Weather forecasts and somne current conditions data (e.g., cloud cover) provided by https://darksky.net/dev 
+
+#### VClouds Weather Icons
+Icons provided by VClouds Weather Icons by VClouds VClouds Weather Icons© Created and copyrighted© by VClouds - http://vclouds.deviantart.com/
+
+The icons are free to use for Non-Commercial use, but If you use want to use it with your art please credit me and put a link leading back to the icons DA page - http://vclouds.deviantart.com/gallery/#/d2ynulp
+
+*** Not to be used for commercial use without permission! if you want to buy the icons for commercial use please send me a note - http://vclouds.deviantart.com/ ***
+
 ### Change Log:
 
 |*|1.1.10 - Initial Release (March 20, 2019)|
 |---|---|
 |2019-03-24|1.1.15 - New SmartThings/Hubitat Portability Library, Bug fixes
+|2019-03-24|1.1.16 - Fixed TWC error (state.isHE)
+|2019-03-26|1.1.17 - Major bug fixes, new icons, new myTile attribute for Hubitat Dashboard
 
 ### Screen Shot:
 <img src="https://raw.githubusercontent.com/SANdood/MeteoWeather/master/images/MeteoWeatherStation.png" border="1"  />
