@@ -50,13 +50,14 @@
 *	1.1.17 - Major bug fixes, new icons, Hubitat myTile support
 *	1.1.18 - Relocated iconStore
 *	1.1.19 - More bug fixes & optimizations
+*	1.1.20 - Improved handling of non-existent sensors (solar, UV, rain, wind)
 *
 */
 import groovy.json.*
 import java.text.SimpleDateFormat
 import groovy.transform.Field
 
-private String getVersionNum() { return "1.1.19a" }
+private String getVersionNum() { return "1.1.20b" }
 private String getVersionLabel() { return "Meteobridge Weather Station, version ${versionNum}" }
 private Boolean getDebug() { false }
 private Boolean getFahrenheit() { true }		// Set to false for Celsius color scale
@@ -786,13 +787,9 @@ def uninstalled() {
 
 def updated() {
 	log.info "Updated, settings: ${settings}"
-    if (!state.isST) { state.hubPlatform = null; getHubPlatform(); }
+    state.hubPlatform = null; getHubPlatform();		// Force hub update if we are updated...just in case
     state.meteoWeatherVersion = getVersionLabel()
-	unschedule(getMeteoWeather)
-    unschedule(getDarkSkyWeather)
-    unschedule(getPurpleAirAQI)
-    unschedule(updateWundergroundTiles)
-    unschedule(updateTwcTiles)
+    unschedule()
     initialize()
 }
 
@@ -802,13 +799,14 @@ def initialize() {
     def endBy = ''
     
     // Create the template using the latest preferences values (components defined at the bottom)
-	send(name:'meteoTemplate', value: null, displayed: false)
+	// send(name:'meteoTemplate', value: null, displayed: false)
 	send(name:'hubAction', value: null, displayed: false)
 	send(name:'purpleAir', value: null, displayed: false)
 	send(name:'darkSkyWeather', value: null, displayed: false)
 	
     state.meteoTemplate = ((fcstSource && (fcstSource == 'meteo'))? forecastTemplate : '') /* + yesterdayTemplate */ + currentTemplate
     if (debug) send(name: 'meteoTemplate', value: state.meteoTemplate, displayed: false, isStateChange: true)
+    log.debug "meteoTemplate: " + state.meteoTemplate
     
 	// state.iconStore = "https://raw.githubusercontent.com/SANdood/Icons/master/Weather/"
     state.iconStore = "https://github.com/SANdood/Icons/blob/master/Weather/"
@@ -868,6 +866,7 @@ def initialize() {
     
     poweredBy += endBy
     send(name: 'attribution', value: poweredBy, displayed: false, isStateChange: true)
+    log.info "Initialization complete..."
 }
 
 def runEvery3Minutes(handler) {
@@ -940,6 +939,7 @@ def meteoWeatherCallback(hubResponse) {
 	log.info "meteoWeatherCallback() status: " + hubResponse.status
     if (debug) log.debug "meteoWeatherCallback() headers: " + hubResponse.headers
     if (hubResponse.status == 200) {
+    	if (debug) log.debug "hubResponse.body: ${hubResponse.body}"
 	    if (hubResponse.json) {
 			state.meteoWeather = hubResponse.json
 	        if (debug) send(name: 'meteoWeather', value: hubResponse.json, displayed: false, isStateChange: true)
@@ -1010,11 +1010,13 @@ def darkSkyCallback(response, data) {
 	
     // def isNight = (state.meteoWeather?.current?.isNight?.isNumber() && (state.meteoWeather.current.isNight.toInteger() == 1))
     def isNight = (state.meteoWeather?.current?.isNight == 1)
+    if (debug) log.debug "darkSkyCallback() - isNight: ${isNight}, icon: ${icon}"
     
     // Lots of comparisons to do - only do them if something changed
-    def iconChanged = ((state.isNight == null) || (state.isNight != isNight) || (darkSky?.currently?.summary == null) || (darkSky.currently.summary != device.currentValue('weather')))
+    def iconChanged = ((state.isNight == null) || (state.isNight != isNight) || (icon && (icon != device.currentValue('weatherIcon'))) || (darkSky?.currently?.summary == null) || (darkSky.currently.summary != device.currentValue('weather')))
     if (iconChanged) {
     	state.isNight = isNight
+        log.error "icon changed"
         if (isNight) {
             switch(icon) {
                 case 'rain':
@@ -1179,6 +1181,7 @@ def darkSkyCallback(response, data) {
             }
 
         }
+        log.warn "icon: ${icon}"
         if (icon) send(name: "weatherIcon", value: icon, descriptionText: 'Conditions: ' + darkSky.currently.summary, isStateChange: true)
         send(name: "weather", value: darkSky.currently.summary, displayed: false)
     }
@@ -1467,13 +1470,14 @@ def updateWeatherTiles() {
 		def MTwind = 0
 		def MTgust = 0
 		def MTwindDir = 0
-		def MTwindBft = ""
+		def MTwindBft
 		def MTprecipToday = 0.0
 		def MTwindBftIcon = ""
         def MTwindBftText = ""
         def MTsolarPwr = ""
         def MTuvi = ""
 		def MTpressure = device.currentValue('pressure')
+        def MTpressTrend
 		def MTsunrise = device.currentValue('sunriseAPM')
 		def MTsunset = device.currentValue('sunsetAPM')
 		def MTpop = device.currentValue('pop')
@@ -1482,7 +1486,8 @@ def updateWeatherTiles() {
 		
 	// Forecast Data
         if (!fcstSource || (fcstSource == 'meteo')) {
-            if (state.meteoWeather.forecast?.text != null) {
+        	if (debug) "updateWeatherTiles() - updating meteo forecast()"
+            if (state.meteoWeather.forecast?.text != "") {
                 send(name: 'forecast', value: state.meteoWeather.forecast?.text, descriptionText: "Davis Forecast: " + state.meteoWeather.forecast?.text)
                 send(name: "forecastCode", value: state.meteoWeather.forecast?.code, descriptionText: "Davis Forecast Rule #${state.meteoWeather.forecast?.code}")
             } else {
@@ -1493,6 +1498,7 @@ def updateWeatherTiles() {
         
     // Yesterday data
         if (state.meteoWeather.yesterday) {
+        	if (debug) "updateWeatherTiles() - handling yesterday's data"
         	def t = roundIt(state.meteoWeather.yesterday.highTemp, ud)
         	send(name: 'highTempYesterday', value: t, unit: unit, descriptionText: "High Temperature yesterday was ${t}°${unit}")
             t = roundIt(state.meteoWeather.yesterday.lowTemp, ud)
@@ -1511,7 +1517,9 @@ def updateWeatherTiles() {
 
     // Today data
 		if (state.meteoWeather.current) { 
+        	if (debug) log.debug "updateWeatherTiles() - handling today's data"
         	if (state.meteoWeather.current.isDay != device.currentValue('isDay')) {
+            	if (debug) "updateWeatherTiles() - updating day/night"
                 updateTwcTiles()
                 if (state.meteoWeather.current.isDay == 1) {
                 	send(name: 'isDay', value: 1, displayed: true, descriptionText: 'Daybreak' )
@@ -1523,54 +1531,58 @@ def updateWeatherTiles() {
             }
             
         // Temperatures
-            def td = roundIt(state.meteoWeather.current.temperature, 2)
-			send(name: "temperature", value: td, unit: unit, descriptionText: "Temperature is ${td}°${unit}")
-			MTtemperature = roundIt(state.meteoWeather.current.temperature, 1)
-            if (state.isST) {
-            	td = MTtemperature
-            	send(name: "temperatureDisplay", value: td.toString(), unit: unit, displayed: false, descriptionText: "Temperature display is ${td}°${unit}")
-            }
-            def t = roundIt(state.meteoWeather.current.highTemp, ud)
-            send(name: "highTemp", value: t, unit: unit, descriptionText: "High Temperature so far today is ${t}°${unit}")
-            t = roundIt(state.meteoWeather.current.lowTemp, ud)
-            send(name: "lowTemp", value: t , unit: unit, descriptionText: "Low Temperature so far today is ${t}°${unit}")
-            t = roundIt(state.meteoWeather.current.heatIndex, ud+1)
-            if (state.meteoWeather.current.temperature != state.meteoWeather.current.heatIndex) {
-            	send(name: "heatIndex", value: t , unit: unit, displayed: false)
-				MTfeelsLike = roundIt(t, 1)
-                if (state.isST) send(name: "heatIndexDisplay", value: t + '°', unit: unit, descriptionText: "Heat Index is ${t}°${unit}")
-            } else {
-            	send(name: 'heatIndex', value: t, unit: unit, descriptionText: "Heat Index is ${t}°${unit} - same as current temperature")
-                if (state.isST) send(name: 'heatIndexDisplay', value: '=', displayed: false)
-            }
-            td = roundIt(state.meteoWeather.current.indoorTemp, 2)
-            send(name: "indoorTemperature", value: td, unit: unit, descriptionText: "Indoor Temperature is ${td}°${unit}")
-			t = roundIt(state.meteoWeather.current.dewpoint, ud+1)
-            send(name: "dewpoint", value: t , unit: unit, descriptionText: "Dew Point is ${t}°${unit}")
-            t = roundIt(state.meteoWeather.current.indoorDew, 2)
-            send(name: "indoorDewpoint", value: t, unit: unit, descriptionText: "Indoor Dewpoint is ${t}°${unit}")
-            t = roundIt(state.meteoWeather.current.windChill, ud+1)
-            if (isStateChange( device, 'windChill', t as String) || (MTfeelsLike == "")) {
-            	if (t) {
-                    if (state.meteoWeather.current.temperature != state.meteoWeather.current.windChill) {			
-						if (MTfeelsLike == "") MTfeelsLike = roundIt(t, 1)
-                        send(name: "windChill", value: t, unit: unit, displayed: false, isStateChange: true)
-                        if (state.isST) send(name: "windChillDisplay", value: t + '°', unit: unit, descriptionText: "Wind Chill is ${t}°${unit}", isStateChange: true)
-                    } else {
-                        send(name: 'windChill', value: t, unit: unit, descriptionText: "Wind Chill is ${t}°${unit} - same as current temperature", isStateChange: true)
-                        if (state.isST) send(name: 'windChillDisplay', value: '=', displayed: false, isStateChange: true)
-                    }
-                } else {
-                    // if the Meteobridge weather station doesn't have an anemometer, we won't get a wind chill value
-                    send(name: 'windChill', value: null, displayed: false, isStateChange: true)
-                    if (state.isST) send(name: 'windChillDisplay', value: null, displayed: false, isStateChange: true)
+            if (state.meteoWeather.current.temperature) {
+            	if (debug) log.debug "updateWeatherTiles() - updating temperatures"
+                def td = roundIt(state.meteoWeather.current.temperature, 2)
+                send(name: "temperature", value: td, unit: unit, descriptionText: "Temperature is ${td}°${unit}")
+                MTtemperature = roundIt(state.meteoWeather.current.temperature, 1)
+                if (state.isST) {
+                    td = MTtemperature
+                    send(name: "temperatureDisplay", value: td.toString(), unit: unit, displayed: false, descriptionText: "Temperature display is ${td}°${unit}")
                 }
+                def t = roundIt(state.meteoWeather.current.highTemp, ud)
+                send(name: "highTemp", value: t, unit: unit, descriptionText: "High Temperature so far today is ${t}°${unit}")
+                t = roundIt(state.meteoWeather.current.lowTemp, ud)
+                send(name: "lowTemp", value: t , unit: unit, descriptionText: "Low Temperature so far today is ${t}°${unit}")
+                t = roundIt(state.meteoWeather.current.heatIndex, ud+1)
+                if (state.meteoWeather.current.temperature != state.meteoWeather.current.heatIndex) {
+                    send(name: "heatIndex", value: t , unit: unit, displayed: false)
+                    MTfeelsLike = roundIt(t, 1)
+                    if (state.isST) send(name: "heatIndexDisplay", value: t + '°', unit: unit, descriptionText: "Heat Index is ${t}°${unit}")
+                } else {
+                    send(name: 'heatIndex', value: t, unit: unit, descriptionText: "Heat Index is ${t}°${unit} - same as current temperature")
+                    if (state.isST) send(name: 'heatIndexDisplay', value: '=', displayed: false)
+                }
+                td = roundIt(state.meteoWeather.current.indoorTemp, 2)
+                send(name: "indoorTemperature", value: td, unit: unit, descriptionText: "Indoor Temperature is ${td}°${unit}")
+                t = roundIt(state.meteoWeather.current.dewpoint, ud+1)
+                send(name: "dewpoint", value: t , unit: unit, descriptionText: "Dew Point is ${t}°${unit}")
+                t = roundIt(state.meteoWeather.current.indoorDew, 2)
+                send(name: "indoorDewpoint", value: t, unit: unit, descriptionText: "Indoor Dewpoint is ${t}°${unit}")
+                t = roundIt(state.meteoWeather.current.windChill, ud+1)
+                if (isStateChange( device, 'windChill', t as String) || (MTfeelsLike == "")) {
+                    if (t) {
+                        if (state.meteoWeather.current.temperature != state.meteoWeather.current.windChill) {			
+                            if (MTfeelsLike == "") MTfeelsLike = roundIt(t, 1)
+                            send(name: "windChill", value: t, unit: unit, displayed: false, isStateChange: true)
+                            if (state.isST) send(name: "windChillDisplay", value: t + '°', unit: unit, descriptionText: "Wind Chill is ${t}°${unit}", isStateChange: true)
+                        } else {
+                            send(name: 'windChill', value: t, unit: unit, descriptionText: "Wind Chill is ${t}°${unit} - same as current temperature", isStateChange: true)
+                            if (state.isST) send(name: 'windChillDisplay', value: '=', displayed: false, isStateChange: true)
+                        }
+                    } else {
+                        // if the Meteobridge weather station doesn't have an anemometer, we won't get a wind chill value
+                        send(name: 'windChill', value: null, displayed: false, isStateChange: true)
+                        if (state.isST) send(name: 'windChillDisplay', value: null, displayed: false, isStateChange: true)
+                    }
+                }
+                if (MTfeelsLike == "") MTfeelsLike = MTtemperature
             }
-            if (MTfeelsLike == "") MTfeelsLike = MTtemperature
 			
         // Humidity
             def hum = roundIt(state.meteoWeather.current.humidity, 0)
             if (isStateChange(device, 'humidity', hum as String)) {
+            	if (debug) log.debug "updateWeatherTiles() - updating humidity"
 				send(name: "humidity", value: hum, unit: "%", descriptionText: "Humidity is ${hum}%", isStateChange: true)
 				MThumidity = hum
             	hum = roundIt(state.meteoWeather.current.highHum, 0)
@@ -1582,8 +1594,18 @@ def updateWeatherTiles() {
             send(name: "indoorHumidity", value: hum, unit: "%", descriptionText: "Indoor Humidity is ${hum}%")
             
         // Ultraviolet Index
-            if (state.meteoWeather.current.uvIndex != "") {
+            if (state.meteoWeather.current.uvIndex && (state.meteoWeather.current.uvIndex != 'null')) {
+            	if (debug) log.debug "updateWeatherTiles() - updating UV Index"
             	def uv = roundIt(state.meteoWeather.current.uvIndex, 1)		// UVindex can be null
+                MTuvi = uv
+                if (isStateChange(device, 'uvIndex', uv as String)) {
+            		send(name: "uvIndex", value: uv, unit: 'uvi', descriptionText: "UV Index is ${uv}", displayed: false, isStateChange: true)
+            		send(name: 'ultravioletIndex', value: uv, unit: 'uvi', descriptionText: "Ultraviolet Index is ${uv}", isStateChange: true)
+                }
+            } else if (state.darkSkyWeather?.uvIndex) {
+            // use the DarkSky data, if available
+            	if (debug) log.debug "updateWeatherTiles() - updating UV Index from DarkSky"
+            	def uv = roundIt(state.darkSkyWeather.uvIndex, 1)		// UVindex can be null
                 MTuvi = uv
                 if (isStateChange(device, 'uvIndex', uv as String)) {
             		send(name: "uvIndex", value: uv, unit: 'uvi', descriptionText: "UV Index is ${uv}", displayed: false, isStateChange: true)
@@ -1595,7 +1617,8 @@ def updateWeatherTiles() {
             }           
            
         // Solar Radiation
-            if (state.meteoWeather.current.solarRadiation != "") {
+            if (state.meteoWeather.current.solarRadiation && (state.meteoWeather.current.uvIndex != 'null')) {
+            	if (debug) log.debug "updateWeatherTiles() - updating solarRadiation"
             	def val = roundIt(state.meteoWeather.current.solarRadiation, 0)
 				send(name: "solarRadiation", value: val, unit: 'W/m²', descriptionText: "Solar radiation is ${val} W/m²")
                 MTsolarPwr = val
@@ -1605,95 +1628,113 @@ def updateWeatherTiles() {
         
 		// Barometric Pressure   
             def pr = roundIt(state.meteoWeather.current.pressure, 2)
-			MTpressure = pr
-            if (pr && isStateChange(device, 'pressure', pr as String)) {
+            if (pr && (pr != 'null')) {
+            	if (debug) log.debug "updateWeatherTiles() - updating barometric pressure()"
                 def pressure_trend_text
-                switch (state.meteoWeather.current.pressureTrend) {
-                    case "FF" :
-                        pressure_trend_text = "➘ Fast"
-                        break;
-                    case "FS":
-                        pressure_trend_text = "➘ Slow"
-                        break;
-                    case "ST":
-                        pressure_trend_text = "Steady"
-                        break;
-                    case "N/A":
-                        pressure_trend_text = '➙'
-                        break;
-                    case "RS":
-                        pressure_trend_text = "➚ Slow"
-                        break;
-                    case "RF":
-                        pressure_trend_text = "➚ Fast"
-                        break;
-                    default:
-                        pressure_trend_text = ""
+                if ((pr != MTpressure) || (state.meteoWeather.current.pressureTrend != device.currentValue('pressureTrend'))) { 
+                    MTpressure = pr
+                    switch (state.meteoWeather.current.pressureTrend) {
+                        case "FF" :
+                            pressure_trend_text = "➘ Fast"
+                            break;
+                        case "FS":
+                            pressure_trend_text = "➘ Slow"
+                            break;
+                        case "ST":
+                            pressure_trend_text = "Steady"
+                            break;
+                        case "N/A":
+                            pressure_trend_text = '➙'
+                            break;
+                        case "RS":
+                            pressure_trend_text = "➚ Slow"
+                            break;
+                        case "RF":
+                            pressure_trend_text = "➚ Fast"
+                            break;
+                        default:
+                            pressure_trend_text = ""
+                    }
+                    MTpressTrend = (pressure_trend_text != 'Steady') ? pressure_trend_text : '➙'
                 }
                 send(name: 'pressure', value: pr, unit: pv, displayed: false, descriptionText: "Barometric Pressure is ${pr} ${pv}", isStateChange: true)
                 if (state.isST) send(name: 'pressureDisplay', value: "${pr}\n${pv}\n${pressure_trend_text}", descriptionText: "Barometric Pressure is ${pr} ${pv} - ${pressure_trend_text}", isStateChange: true)
-                send(name: 'pressureTrend', value: pressure_trend_text, displayed: false, descriptionText: "Barometric Pressure trend is ${pressure_trend_text}")
-       		}
+                send(name: 'pressureTrend', value: pressure_trend_text, displayed: false, descriptionText: "Barometric Pressure trend over last 10 minutes is ${pressure_trend_text}")
+            } else {
+            	send(name: 'pressure', value: null, displayed: false)
+                send(name: 'pressureTrend', value: "", displayed: false)
+                if (state.isST) send(name: 'pressureDisplay', value: "", displayed: false)
+            }
             
 		// Rainfall
-        	def rlh = roundIt(state.meteoWeather.current.rainLastHour, hd+1)
-            if (device.currentValue('precipLastHour') != rlh) {
-            // only if rainfall has changed
-                def rlhd = state.isST ? roundIt(state.meteoWeather.current.rainLastHour, hd) : null
-                if (rlh != null) {
-                    if (state.isST) send(name: 'precipLastHourDisplay', value: "${rlhd}${h}", displayed: false)
-                    send(name: 'precipLastHour', value: rlh, unit: "${h}", descriptionText: "Precipitation in the Last Hour was ${rlh}${h}")
-                } else {
-                    if (state.isST) send(name: 'precipLastHourDisplay', value: '0.00', displayed: false)
-                }
-                def rtd = roundIt(state.meteoWeather.current.rainfall, hd+1)
-                def rtdd = state.isST ? roundIt(state.meteoWeather.current.rainfall, hd) : null
-                if (rtd != null) {
-                    if (state.isST) send(name: 'precipTodayDisplay', value:  "${rtdd}${h}", displayed: false)
-                    send(name: 'precipToday', value: rtd, unit: "${h}", descriptionText: "Precipitation so far today is ${rtd}${h}")
-					MTprecipToday = rtd
-                } else {
-                    if (state.isST) send(name: 'precipTodayDisplay', value:  '0.00', displayed: false)
-                }
-            }
-            def rrt = roundIt(state.meteoWeather.current.rainRate, hd)
-            if (device.currentValue('precipRate') != rrt) {
-                if (rrt != null) {
-                    if (state.isST) send(name: 'precipRateDisplay', value:  "${rrt}${h}", displayed: false)
-                    send(name: 'precipRate', value: rrt, unit: "${h}/hr", descriptionText: "Precipitation rate is ${rrt}${h}/hour")
-                } else {
-                    send(name: 'precipRateDisplay', value:  '0.00', displayed: false)
+        	if (state.meteoWeather.current.rainLastHour && (state.meteoWeather.current.rainLastHour != 'null')) {
+                def rlh = roundIt(state.meteoWeather.current.rainLastHour, hd+1)
+                if (device.currentValue('precipLastHour') != rlh) {
+                // only if rainfall has changed
+                    if (debug) log.debug "updateWeatherTiles() - updating rainfall"
+                    def rlhd = state.isST ? roundIt(state.meteoWeather.current.rainLastHour, hd) : null
+                    if (rlh != null) {
+                        if (state.isST) send(name: 'precipLastHourDisplay', value: "${rlhd}${h}", displayed: false)
+                        send(name: 'precipLastHour', value: rlh, unit: "${h}", descriptionText: "Precipitation in the Last Hour was ${rlh}${h}")
+                    } else {
+                        if (state.isST) send(name: 'precipLastHourDisplay', value: '0.00', displayed: false)
+                    }
+                    def rtd = roundIt(state.meteoWeather.current.rainfall, hd+1)
+                    def rtdd = state.isST ? roundIt(state.meteoWeather.current.rainfall, hd) : null
+                    if (rtd != null) {
+                        if (state.isST) send(name: 'precipTodayDisplay', value:  "${rtdd}${h}", displayed: false)
+                        send(name: 'precipToday', value: rtd, unit: "${h}", descriptionText: "Precipitation so far today is ${rtd}${h}")
+                        MTprecipToday = rtd
+                    } else {
+                        if (state.isST) send(name: 'precipTodayDisplay', value:  '0.00', displayed: false)
+                    }
                 }
             }
-            
-		// Wet/dry indicator - wet if there has been measurable rainfall within the last hour...
-            if ((state.meteoWeather.current.rainLastHour != "") && (state.meteoWeather.current.rainLastHour > 0.0)) {
-				sendEvent( name: 'water', value: "wet" )
-			} else {
-				sendEvent( name: 'water', value: "dry" )
-			}
+            if (state.meteoWeather.current.rainRate && (state.meteoWeather.current.rainRate != 'null')) {
+                def rrt = roundIt(state.meteoWeather.current.rainRate, hd)
+                if (device.currentValue('precipRate') != rrt) {
+                    if (debug) log.debug "updateWeatherTiles() - updating rain rate"
+                    if (rrt != null) {
+                        if (state.isST) send(name: 'precipRateDisplay', value:  "${rrt}${h}", displayed: false)
+                        send(name: 'precipRate', value: rrt, unit: "${h}/hr", descriptionText: "Precipitation rate is ${rrt}${h}/hour")
+                    } else {
+                        send(name: 'precipRateDisplay', value:  '0.00', displayed: false)
+                    }
+                }
+
+            // Wet/dry indicator - wet if there has been measurable rainfall within the last hour...
+                if (state.meteoWeather.current.rainLastHour && (state.meteoWeather.current.rainLastHour > 0.0)) {
+                    sendEvent( name: 'water', value: "wet" )
+                } else {
+                    sendEvent( name: 'water', value: "dry" )
+                }
+            }
             
         // Evapotranspiration
-            def et = roundIt(state.meteoWeather.current.evapotranspiration, hd+1)
-            if (et != null) {
-            	send(name: "evapotranspiration", value: et, unit: "${h}", descriptionText: "Evapotranspiration rate is ${et}${h}/hour")
-                if (state.isST) send(name: "etDisplay", value: "${roundIt(et,hd)}${h}", displayed: false)
+        	if (state.meteoWeather.current.evapotranspiration && (state.meteoWeather.current.evapotranspiration != 'null')) {
+                def et = roundIt(state.meteoWeather.current.evapotranspiration, hd+1)
+                if (et != device.currentValue('evapotranspiration')) {
+                	if (debug) log.debug "updateWeatherTiles() - updating evapotranspiration"
+                	send(name: "evapotranspiration", value: et, unit: "${h}", descriptionText: "Evapotranspiration rate is ${et}${h}/hour")
+                	if (state.isST) send(name: "etDisplay", value: "${roundIt(et,hd)}${h}", displayed: false)
+                }
             } else {
-            	if (state.isST) send(name: "etDisplay", value: null, displayed: false)
+            	send(name: 'evapotranspiration', value: null, displayed: false)
+                if (state.isST) send(name: "etDisplay", value: "", displayed: false)
             }
 
 		// Wind 
-            if (state.meteoWeather.current.windSpeed != "") {
+            if (state.meteoWeather.current.windSpeed && (state.meteoWeather.current.windSpeed != 'null')) {
+            	if (debug) log.debug "updateWeatherTiles() - updating wind"
             	def ws = roundIt(state.meteoWeather.current.windSpeed,0)
 				MTwind = ws
            		def wg = roundIt(state.meteoWeather.current.windGust,0)
 				MTgust = wg
 				MTwindBft = state.meteoWeather.current.windBft
-                if (MTwindBft != "") {
+                if (MTwindBft) {
 					MTwindBftIcon = MTwindBft ? "wb${roundIt(MTwindBft,0)}.png" : ""
 					MTwindBftText = getBeaufortText(MTwindBft)
                 }
-				
 				def winfo = "${MTwindBftText.capitalize()} @ ${ws} ${s}\nfrom ${state.meteoWeather.current.windDirText} (${state.meteoWeather.current.windDegrees.toInteger()}°)\ngusts to ${wg} ${s}"
                 def winfoDesc = "Winds are ${ws} ${s} from the ${state.meteoWeather.current.windDirText} (${state.meteoWeather.current.windDegrees.toInteger()}°), gusting to ${wg} ${s}"
 				send(name: "windinfo", value: winfo, displayed: true, descriptionText: winfoDesc)
@@ -1705,7 +1746,7 @@ def updateWeatherTiles() {
 			// Hubitat Dashboard / Tile Info
 				def wind_dir = state.meteoWeather.current.windDirText
 				def wind_direction
-				switch(wind_dir.toUpperCase()){
+				switch(wind_dir.toUpperCase()) {
 					case 'N': wind_direction = 'North'; break;
 					case 'NNE': wind_direction = 'North-Northeast'; break;
 					case 'NE': wind_direction = 'Northeast'; break;
@@ -1733,6 +1774,7 @@ def updateWeatherTiles() {
             } else {
             	def isChange = isStateChange( device, 'wind', null)
                 if (isChange) {
+                // Lost our anemometer somehow, null out the display
                     send(name: "windinfo", value: null, displayed: false)
                     send(name: "windGust", value: null, displayed: false)
                     send(name: "windDirection", value: null, displayed: false)
@@ -1759,9 +1801,6 @@ def updateWeatherTiles() {
 			send(name: 'longitude', value: state.meteoWeather.logitude, descriptionText: "Weather Station longitude is ${state.meteoWeather.longitude}",  displayed: false)
 			send(name: 'timezone', value: state.meteoWeather.timezone, descriptionText: "Weather Station time zone is ${state.meteoWeather.timezone}", displayed: false)
 			send(name: 'tz_id', value: state.meteoWeather.timezone, descriptionText: "Weather Station time zone is ${state.meteoWeather.timezone}", displayed: false)
-			MTcity = 'Tyngsboro'
-			MTstate = 'MA'
-			MTcountry = 'USA'
 			send(name: 'city', value: MTcity, displayed: false)
 			send(name: 'state', value: MTstate, displayed: false)
 			send(name: 'country', value: MTcountry, displayed: false)
@@ -1770,16 +1809,17 @@ def updateWeatherTiles() {
         	if ( ((state.meteoWeather.current.date != "") && (state.meteoWeather.current.date != device.currentValue('currentDate'))) ||
             		( /*(state.meteoWeather.current.sunrise != "") && */ (state.meteoWeather.current.sunrise != device.currentValue('sunrise'))) ||
                     ( /*(state.meteoWeather.current.sunset != "") && */ (state.meteoWeather.current.sunset != device.currentValue('sunset'))) ||
-                    ((state.meteoWeather.current.dayHours != null) && (state.meteoWeather.current.dayHours != device.currentValue('dayHours'))) ||
+                    ((state.meteoWeather.current.dayHours != "") && (state.meteoWeather.current.dayHours != device.currentValue('dayHours'))) ||
                     ( /*(state.meteoWeather.current.moonrise != "") && */ (state.meteoWeather.current.moonrise != device.currentValue('moonrise'))) || // sometimes there is no moonrise/set
                     ( /*(state.meteoWeather.current.moonset != "") &&  */ (state.meteoWeather.current.moonset != device.currentValue('moonset'))) ) {
             	// If any Date/Time has changed, time to update them all
+                if (debug) log.debug "updateWeatherTiles() - updating dates"
                 
             	// Sunrise / sunset
 				if (state.meteoWeather.current.sunrise != "") updateMeteoTime(state.meteoWeather.current.sunrise, 'sunrise') else clearMeteoTime('sunrise')
                 if (state.meteoWeather.current.sunset != "")  updateMeteoTime(state.meteoWeather.current.sunset, 'sunset') else clearMeteoTime('sunset')
                 if (state.meteoWeather.current.dayHours != "") {
-                	send(name: "dayHours", value: state.meteoWeather.current.dayHours, descriptionText: state.meteoWeather.current.dayHours + ' of daylight today')
+                	send(name: "dayHours", value: state.meteoWeather.current.dayHours, descriptionText: state.meteoWeather.current.dayHours + ' hours of daylight today')
                 } else {
                 	send(name: 'dayHours', value: "", displayed: false)
                 }
@@ -1801,9 +1841,11 @@ def updateWeatherTiles() {
             
         // Lux estimator - get every time, even if we aren't using Meteobridge data to calculate the lux
             def lux = estimateLux()
+            if (debug) log.debug "updateWeatherTiles() - updating lux"
 			send(name: "illuminance", value: lux, unit: 'lux', descriptionText: "Illumination is ${lux} lux (est)")
             
         // Lunar Phases
+        	if (debug) log.debug "updateWeatherTiles() - updating the moon"
         	String xn = 'x'				// For waxing/waning below
             String phase = null
             def l = state.meteoWeather.current.lunarAge
@@ -1844,7 +1886,7 @@ def updateWeatherTiles() {
                 send(name: 'lunarAge', value: l, unit: 'days', displayed: false, descriptionText: "The Moon is ${l} days old" )        
 				send(name: 'moonAge', value: l, unit: 'days', displayed: false, descriptionText: "" )
             }
-            if (state.meteoWeather.current.lunarPercent != "") {
+            if (state.meteoWeather.current.lunarPercent) {
             	def lpct = roundIt(state.meteoWeather.current.lunarPercent, 0)
                 if (device.currentValue('lunarPercent') != lpct) {
                     send(name: 'lunarPercent', value: lpct, displayed: false, unit: '%')
@@ -1863,44 +1905,50 @@ def updateWeatherTiles() {
                     }
                 }
             }
+        // myTile (for Hubitat Dashboard)
+            if (debug) log.debug "updateWeatherTiles() - updating myTile - icon: ${MTicon}"
+            def iconClose = "?raw=true"
+            //def mytext = '<div style=\"text-align:center;display:inline;margin-top:0em;margin-bottom:0em;\">' + "${MTcity}" + ', ' + "${MTstate}</div><br>"
+            def mytext = '<div style=\"text-align:center;display:inline;margin-top:0em;margin-bottom:0em;\">' + "${MTlocation}</div><br>" +
+                            // "${alertStyleOpen}" + "${condition_text}" + "${alertStyleClose}" + '<br>' +
+                            "${MTtemperature}&deg;${unit}" + '<img style=\"height:2.0em\" src=' + "${getImgIcon(MTicon)}" + '>' +
+                            	(((MTfeelsLike != "") && (MTfeelsLike != MTtemperature)) ? ('<span style=\"font-size:.75em;\"> Feels like ' + "${MTfeelsLike}&deg;${unit}" + '</span><br>') : '<br>') +
+                			( MTweather ? (MTweather + '<br><br>') : '<br>' ) +
+                            '<div style=\"font-size:.90em;line-height=100%;\">' +
+                            	( MTwindBft ? ('<img src=' + state.iconStore + MTwindBftIcon + iconClose + "> ${MTwindBftText.capitalize()}${(MTwindBft != 0) ? (' from the ' + MTwindDir) : ''}<br>") : '') +
+                            ( (MTwindBft != 0) ? "at ${MTwind} ${s}, gusting to ${MTgust} ${s}<br><br>" : '<br>') +
+                            ( MTpressure ? ('<img src=' + state.iconStore + "wb.png${iconClose}>" + "${MTpressure} ${pv} ${MTpressTrend}  ") : '') + 
+                            	'<img src=' + state.iconStore + "wh.png${iconClose}>" + "${MThumidity}" + '%   ' + '<img src=' + 
+                                state.iconStore + "wu.png${iconClose}>" + "${MTpop}" + '%' + (MTprecipToday > 0 ? '  <img src=' + state.iconStore + "wr.png${iconClose}>" + "${MTprecipToday} ${h}" : '') + '<br>' +
+                            ( (MTsolarPwr && (MTsolarPwr != 'null')) ? '<img src=' + state.iconStore + "wsp.png${iconClose}>" + " ${MTsolarPwr} W/m² " : '' ) +
+                            	( (MTuvi && (MTuvi != 'null')) ? '  <img src=' + state.iconStore + "wuv.png${iconClose}>" + " ${MTuvi} uvi</div>" : '</div>')
+                            // '<img src=' + state.iconStore + "wsr.png${iconClose}>" + "${MTsunrise}" + '     <img src=' + state.iconStore + "wss.png${iconClose}>" + "${MTsunset}</div>"
+
+            if (debug) log.debug "mytext (${mytext.size()}): ${mytext}"
+            send(name: 'myTile', value: mytext, displayed: false, descriptionText: "")
         }
-		
-		def iconClose = "?raw=true"
-        //def iconClose = ''
-		//def mytext = '<div style=\"text-align:center;display:inline;margin-top:0em;margin-bottom:0em;\">' + "${MTcity}" + ', ' + "${MTstate}</div><br>"
-        def mytext = '<div style=\"text-align:center;display:inline;margin-top:0em;margin-bottom:0em;\">' + "${MTlocation}</div><br>"
-		//	mytext+= "${alertStyleOpen}" + "${condition_text}" + "${alertStyleClose}" + '<br>'
-		    mytext+= "${MTtemperature}&deg;${unit}" + '<img style=\"height:2.0em\" src=' + "${getImgIcon(MTicon)}${iconClose}" + '>' 
-			mytext+= ((MTfeelsLike != "") && (MTfeelsLike != MTtemperature)) ? '<span style= \"font-size:.75em;\"> Feels like ' + "${MTfeelsLike}&deg;${unit}" + '</span><br><br>' : '<br><br>'
-            mytext+= '<div style=\"font-size:.90em;line-height=100%;\">'
-			mytext+= (MTwindBft != "") ? ('<img src=' + state.iconStore + MTwindBftIcon + iconClose + "> ${MTwindBftText.capitalize()}${(MTwindBft != 0) ? (' from the ' + MTwindDir) : ''}<br>") : ''
-		 	mytext+= (MTwindBft != 0) ? "at ${MTwind} ${s}, gusting to ${MTgust} ${s}<br><br>" : '<br>'
-		    mytext+= '<img src=' + state.iconStore + "wb.png${iconClose}>" + "${MTpressure} ${pv}" + '  <img src=' + state.iconStore + "wh.png${iconClose}>" + "${MThumidity}" + '%   ' + '<img src=' + 
-            			state.iconStore + "wu.png${iconClose}>" + "${MTpop}" + '%' + (MTprecipToday > 0 ? '  <img src=' + state.iconStore + "wr.png${iconClose}>" + "${MTprecipToday} ${h}" : '') + '<br>'
-			mytext+= (MTsolarPwr != "") ? '<img src=' + state.iconStore + "wsp.png${iconClose}>" + " ${MTsolarPwr} W/m² " : ''
-			mytext+= (MTuvi != "") ? '  <img src=' + state.iconStore + "wuv.png${iconClose}>" + " ${MTuvi} uvi</div>" : '</div>'
-            // mytext+= '<img src=' + state.iconStore + "wsr.png${iconClose}>" + "${MTsunrise}" + '     <img src=' + state.iconStore + "wss.png${iconClose}>" + "${MTsunset}</div>"
-		
-        if (debug) log.debug "mytext (${mytext.size()}): ${mytext}"
-		send(name: 'myTile', value: mytext, displayed: false, descriptionText: "")
 		
     // update the timestamps last, after all the values have been updated
-        def nowText = null
-        if (state.meteoWeather.current?.date != null) {
-        	nowText = state.meteoWeather.current.time + '\non ' + state.meteoWeather.current.date
-        } else {
-        	nowText = '~' + new Date(state.meteoWeather.timestamp).format("h:mm:ss a '\non' M/d/yyyy", location.timeZone).toLowerCase()
-    	}
-        if (nowText != null) sendEvent(name:"lastSTupdate", value: nowText, descriptionText: "Last updated at ${nowText}", displayed: false)
-        sendEvent(name:"timestamp", value: state.meteoWeather.timestamp, displayed: false)
-        
-        // Check if it's time to get yesterday's data
-        if (debug) log.debug "Current date from MeteoBridge is: ${state.meteoWeather.current?.date}"
-        if ((state.meteoWeather.current?.date != null) && ((state.today == null) || (state.today != state.meteoWeather.current.date))) {
-        	state.today = state.meteoWeather.current.date
-        	getMeteoWeather( true )
+        if (!yesterday) {
+            // No date/time when getting yesterday data
+            if (debug) log.debug "updateWeatherTiles() - updating timestamps"
+            def nowText = null
+            if (state.meteoWeather.current?.date != null) {
+                nowText = state.meteoWeather.current.time + '\non ' + state.meteoWeather.current.date
+            } else {
+                nowText = '~' + new Date(state.meteoWeather.timestamp).format("h:mm:ss a '\non' M/d/yyyy", location.timeZone).toLowerCase()
+            }
+            if (nowText != null) sendEvent(name:"lastSTupdate", value: nowText, descriptionText: "Last updated at ${nowText}", displayed: false)
+            sendEvent(name:"timestamp", value: state.meteoWeather.timestamp, displayed: false)
+
+            // Check if it's time to get yesterday's data
+            if (debug) log.debug "Current date from MeteoBridge is: ${state.meteoWeather.current?.date}"
+            if ((state.meteoWeather.current?.date != null) && ((state.today == null) || (state.today != state.meteoWeather.current.date))) {
+                state.today = state.meteoWeather.current.date
+                getMeteoWeather( true )	// request yesterday data
+            }
         }
-	}
+    }
     log.trace "updateWeatherTiles() finished"
 }
 private updateMeteoTime(timeStr, stateName) {
@@ -2123,11 +2171,11 @@ private estimateLux() {
         //day
         if (darkSkyKey != '') {
         	// Dark Sky: Use Cloud Cover
-            def cloudCover = (state.darkSkyWeather?.currently?.cloudCover != null) ?: 0.0
+            def cloudCover = (state.darkSkyWeather?.cloudCover != null) ?: 0.0
             lux = roundIt(1000.0 - (1000.0 * cloudCover), 0)
             if (lux == 0) {
-            	if (state.darkSkyWeather?.currently?.uvIndex != null) {
-                	lux = (state.darkSkyWeather.currently.uvIndex > 0) ? 100 : 50	// hack - it's never totally dark during the day
+            	if (state.darkSkyWeather?.uvIndex != null) {
+                	lux = (state.darkSkyWeather.uvIndex > 0) ? 100 : 50	// hack - it's never totally dark during the day
                 }
             }
         } else {
@@ -2332,7 +2380,7 @@ String getMeteoSensorID() {
     return sensorID   
 }
 def getForecastTemplate() {
-	return '"forecast":{"text":"[forecast-text:\"\"]","code":[forecast-rule:\"\"]},'
+	return '"forecast":{"text":"[forecast-text:]","code":[forecast-rule:]},'
 }
 def getMBSystemTemplate() {
 	return '"version":[mbsystem-swversion:1.0],"station":"[mbsystem-station:]","latitude":[mbsystem-latitude:],"longitude":[mbsystem-longitude:],"timezone":"[mbsystem-timezone:]",'
@@ -2347,9 +2395,9 @@ def getCurrentTemplate() {
 	String d = getMeteoSensorID()
     // String d = '0'
 	return "\"current\":{\"date\":\"[M]/[D]/[YY]\",\"time\":\"[H]:[mm]:[ss] [apm]\",\"humidity\":[th${d}hum-act=.2:],\"indoorHum\":[thb${d}hum-act=.2:]," + temperatureTemplate + currentRainfall + pressureTemplate + windTemplate +
-			"\"dayHours\":\"[mbsystem-daylength:\"\"]\",\"highHum\":[th${d}hum-dmax=.2:],\"lowHum\":[th${d}hum-dmin=.2:]," +
-			"\"sunrise\":\"[mbsystem-sunrise:]\",\"sunset\":\"[mbsystem-sunset:]\",\"dayMinutes\":[mbsystem-daylength=mins.0:\"\"],\"uvIndex\":[uv${d}index-act:\"\"]," +
-            "\"solarRadiation\":[sol${d}rad-act:\"\"],\"lunarAge\":[mbsystem-lunarage:\"\"],\"lunarPercent\":[mbsystem-lunarpercent:\"\"],\"lunarSegment\":[mbsystem-lunarsegment:\"\"]," +
+			"\"dayHours\":\"[mbsystem-daylength:]\",\"highHum\":[th${d}hum-dmax=.2:],\"lowHum\":[th${d}hum-dmin=.2:]," +
+			"\"sunrise\":\"[mbsystem-sunrise:]\",\"sunset\":\"[mbsystem-sunset:]\",\"dayMinutes\":[mbsystem-daylength=mins.0:],\"uvIndex\":[uv${d}index-act:null]," +
+            "\"solarRadiation\":[sol${d}rad-act:null],\"lunarAge\":[mbsystem-lunarage:],\"lunarPercent\":[mbsystem-lunarpercent:],\"lunarSegment\":[mbsystem-lunarsegment:]," +
             '"moonrise":"[mbsystem-moonrise:]","moonset":"[mbsystem-moonset:]","isDay":[mbsystem-isday=.0],"isNight":[mbsystem-isnight=.0]}}'
 }
 def getTemperatureTemplate() { 
@@ -2357,32 +2405,32 @@ def getTemperatureTemplate() {
     String d = getMeteoSensorID() 
     // String d = '0'
 	return "\"temperature\":[th${d}temp-act=${s}.2:],\"dewpoint\":[th${d}dew-act=${s}.2:],\"heatIndex\":[th${d}heatindex-act=${s}.2:],\"windChill\":[wind${d}chill-act=${s}.2:]," +
-    		"\"indoorTemp\":[thb${d}temp-act=${s}.2:\"\"],\"indoorDew\":[thb${d}dew-act=${s}.2:\"\"],\"highTemp\":[th${d}temp-dmax=${s}.2:\"\"],\"lowTemp\":[th${d}temp-dmin=${s}.2:\"\"],"
+    		"\"indoorTemp\":[thb${d}temp-act=${s}.2:],\"indoorDew\":[thb${d}dew-act=${s}.2:],\"highTemp\":[th${d}temp-dmax=${s}.2:],\"lowTemp\":[th${d}temp-dmin=${s}.2:],"
 }
 def getPressureTemplate() {
 	String p = (pres_units && (pres_units == 'press_in')) ? 'inHg' : 'mmHg'
     String d = getMeteoSensorID() 
     // String d = '0'
-	return "\"pressure\":[thb${d}seapress-act=${p}.2:\"\"],\"pressureTrend\":\"[thb${d}seapress-delta1=enbarotrend:\"\"]\","
+	return "\"pressure\":[thb${d}seapress-act=${p}.2:],\"pressureTrend\":\"[thb${d}seapress-delta10=enbarotrend:N/A]\","
 }
 def getYesterdayRainfall() {
 	String r = (height_units && (height_units == 'height_in')) ? 'in' : ''
     String d = getMeteoSensorID()
     // String d = '0'
-	return "\"rainfall\":[rain${d}total-ydaysum=${r}.3:\"\"]" 
+	return "\"rainfall\":[rain${d}total-ydaysum=${r}.3:null]" 
 }
 def getCurrentRainfall() {
 	String r = (height_units && (height_units == 'height_in')) ? 'in' : ''
     String d = getMeteoSensorID()
     // String d = '0'
-	return "\"rainfall\":[rain${d}total-daysum=${r}.3:\"\"],\"rainLastHour\":[rain${d}total-sum1h=${r}.3:\"\"],\"evapotranspiration\":[sol${d}evo-act=${r}.3:\"\"],\"rainRate\":[rain${d}rate-act=${r}.3:\"\"],"
+	return "\"rainfall\":[rain${d}total-daysum=${r}.3:null],\"rainLastHour\":[rain${d}total-sum1h=${r}.3:null],\"evapotranspiration\":[sol${d}evo-act=${r}.3:null],\"rainRate\":[rain${d}rate-act=${r}.3:null],"
 }
 def getWindTemplate() {
     String s = (speed_units && (speed_units == 'speed_mph')) ? 'mph' : 'kmh'
     String d = getMeteoSensorID()
     // String d = '0'
-	return "\"windGust\":[wind${d}wind-max10=${s}.2:\"\"],\"windAvg\":[wind${d}wind-act=${s}.2:\"\"],\"windDegrees\":[wind${d}dir-act:\"\"],\"windSpeed\":[wind${d}wind-act=${s}.2:\"\"]," + 
-    		"\"windDirText\":\"[wind${d}dir-act=endir:]\",\"windBft\":[wind${d}wind-act=bft.0:\"\"],"
+	return "\"windGust\":[wind${d}wind-max10=${s}.2:],\"windAvg\":[wind${d}wind-act=${s}.2:],\"windDegrees\":[wind${d}dir-act:],\"windSpeed\":[wind${d}wind-act=${s}.2:null]," + 
+    		"\"windDirText\":\"[wind${d}dir-act=endir:]\",\"windBft\":[wind${d}wind-act=bft.0:],"
 }
 def getTemperatureColors() {
     ( (fahrenheit) ? ([
