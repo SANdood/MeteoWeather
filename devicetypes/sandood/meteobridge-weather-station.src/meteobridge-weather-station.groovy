@@ -59,7 +59,7 @@ import groovy.json.*
 import java.text.SimpleDateFormat
 import groovy.transform.Field
 
-private String getVersionNum() { return "1.1.22d" }
+private String getVersionNum() { return "1.1.22c" }
 private String getVersionLabel() { return "Meteobridge Weather Station, version ${versionNum}" }
 private Boolean getDebug() { false }
 private Boolean getFahrenheit() { true }		// Set to false for Celsius color scale
@@ -822,6 +822,8 @@ def initialize() {
     
     // Schedule the updates
     state.today = null
+    runIn(5,getMeteoWeather)						// Have to wait to let the state changes settle
+    
     def t = settings.updateMins ?: '5'
     if (t == '1') {
     	log.info "scheduling for every minute"
@@ -830,7 +832,6 @@ def initialize() {
     	log.info "scheduling for every ${t} minutes"
     	"runEvery${t}Minutes"(getMeteoWeather)
     }
-    runIn(5,getMeteoWeather)						// Have to wait to let the state changes settle
     
     state.twcForTomorrow = false
     state.wunderForTomorrow = false
@@ -1013,7 +1014,7 @@ def darkSkyCallback(response, data) {
 	// current weather icon/state
     // DarkSky doesn't do "night" conditions, but we can make them if we know that it is night...
     def icon = darkSky?.currently?.icon
-    def isNight = ((state.meteoWeather.current.isDay != '--') && (device.currentValue('isDay') == 0))
+    def isNight = ((state.meteoWeather?.current?.isDay != null) && (state.meteoWeather.current.isDay != '--') && (device.currentValue('isDay') == 0))
     if (debug) log.debug "darkSkyCallback() - isNight: ${isNight}, icon: ${icon}"
     
     // Lots of comparisons to do - only do them if something changed
