@@ -60,7 +60,7 @@ import groovy.json.*
 import java.text.SimpleDateFormat
 import groovy.transform.Field
 
-private getVersionNum() { return "1.1.23" }
+private getVersionNum() { return "1.1.23a" }
 private getVersionLabel() { return "Meteobridge Weather Station, version ${versionNum}" }
 private getDebug() { false }
 private getFahrenheit() { true }		// Set to false for Celsius color scale
@@ -2350,7 +2350,7 @@ private estimateLux() {
         //day
         if (darkSkyKey != '') {
         	// Dark Sky: Use Cloud Cover
-            def cloudCover = (state.darkSkyWeather?.cloudCover != null) ?: 0.0
+            def cloudCover = (state.darkSkyWeather?.cloudCover != null) ? state.darkSkyWeather.cloudCover : 0.0
             lux = roundIt(1000.0 - (1000.0 * cloudCover), 0)
             if (lux == 0) {
             	if (state.darkSkyWeather?.uvIndex != null) {
