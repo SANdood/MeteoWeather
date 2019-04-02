@@ -1,4 +1,4 @@
-## ***Meteobridge Weather Station v1.1.20 released on March 27, 2019***
+## ***Meteobridge Weather Station v1.1.23 released on April 2, 2019***
 
 ### Overview
 Meteobridge (www.meteobridge.com) is an inexpensive Linux-based server that is used by many to collect data from your local weather station and distribute it to one or more public weather sources (including Weather Underground, for example). It supports data collection from a large number of popular weather stations, and it offers a local API that allows clients/applications to retrieve the latest weather station data on demand.
@@ -58,6 +58,7 @@ The icons are free to use for Non-Commercial use, but If you use want to use it 
 |2019-03-24|1.1.16 - Fixed TWC error (state.isHE)
 |2019-03-26|1.1.17 - Major bug fixes, new icons, new myTile attribute for Hubitat Dashboard
 |2019-03-27|1.1.20 - Improved handling of non-existent sensors/data
+|2019-04-02|1.1.23 - Major overhaul of template structure for better error handling & efficiency
 
 ### Screen Shot:
 <img src="https://raw.githubusercontent.com/SANdood/MeteoWeather/master/images/MeteoWeatherStation.png" border="1"  />
