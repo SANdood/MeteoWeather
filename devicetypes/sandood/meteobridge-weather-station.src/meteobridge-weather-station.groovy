@@ -54,13 +54,15 @@
 *	1.1.21 - Added city/state/country on ST - PREFERS MeteoBridge Location!!!
 *	1.1.22 - Minor bug fixes & improved error handling
 *	1.1.23 - Major overhaul of MeteoBridge template generation & handling
+*	1.1.24 - Warning message cleanup, expanded "windy/breezy and ..." icons
+*	1.1.25 - Added preferences option to use averaged data pver the last update frequency period
 *
 */
 import groovy.json.*
 import java.text.SimpleDateFormat
 import groovy.transform.Field
 
-private getVersionNum() { return "1.1.23" }
+private getVersionNum() { return "1.1.25" }
 private getVersionLabel() { return "Meteobridge Weather Station, version ${versionNum}" }
 private getDebug() { false }
 private getFahrenheit() { true }		// Set to false for Celsius color scale
@@ -86,13 +88,22 @@ private getIsHE()     { (hubitat?.device?.HubAction ? true : false) }						// if
 //  - getHubPlatform() ***MUST*** be called from the installed() method, then use "state.hubPlatform" elsewhere
 //  - "if (state.isST)" is more efficient than "if (isSTHub)"
 //
-private String getHubPlatform() {
+/* private String getHubPlatform() {
+	
     if (state?.hubPlatform == null) {
         state.hubPlatform = getPlatform()						// if (hubPlatform == 'Hubitat') ... or if (state.hubPlatform == 'SmartThings')...
         state.isST = state.hubPlatform.startsWith('S')			// if (state.isST) ...
         state.isHE = state.hubPlatform.startsWith('H')			// if (state.isHE) ...
     }
     return state.hubPlatform
+} */
+private String getHubPlatform() {
+	def pf = getPlatform()
+	state?.hubPlatform = pf			// if (state.hubPlatform == 'Hubitat') ...
+											// or if (state.hubPlatform == 'SmartThings')...
+	state?.isST = pf.startsWith('S')	// if (state.isST) ...
+	state?.isHE = pf.startsWith('H')	// if (state.isHE) ...
+	return pf
 }
 private getIsSTHub() { (state.isST) }					// if (isSTHub) ...
 private getIsHEHub() { (state.isHE) }					// if (isHEHub) ...
@@ -259,6 +270,7 @@ metadata {
     preferences {
     	input(name: 'updateMins', type: 'enum', description: "Select the update frequency", 
         	title: "${getVersionLabel()}\n\nUpdate frequency (minutes)", displayDuringSetup: true, defaultValue: '5', options: ['1', '3', '5','10','15','30'], required: true)
+        input(name: 'avgUpdates', type: 'bool', title: 'Use averaged updates?', defaultValue: false, displayDuringSetup: true, required: true)
         
         // input(name: "zipCode", type: "text", title: "Zip Code or PWS (optional)", required: false, displayDuringSetup: true, description: 'Specify Weather Underground ZipCode or pws:')
         input(name: "twcLoc", type: "text", title: "TWC Location code (optional)\n(US ZipCode or Lat,Lon)", required: false, displayDuringSetup: true, description: "Leave blank for MeteoBridge's location")
@@ -318,8 +330,8 @@ metadata {
             	//attributeState 'default', label: '${currentValue}', defaultState: true
 				attributeState "chanceflurries", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: " Chance of Flurries"
 				attributeState "chancelightsnow", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: " Possible Light Snow"
-				attributeState "chancelightsnowbreezy", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: " Possible Light Snow and Breezy"
-				attributeState "chancelightsnowwindy", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: " Possible Light Snow and Windy"
+				attributeState "chancelightsnowbreezy", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41b.png", 	label: " Possible Light Snow and Breezy"
+				attributeState "chancelightsnowwindy", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41b.png", 	label: " Possible Light Snow and Windy"
 				attributeState "chancerain", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: " Chance of Rain"
 				attributeState "chancedrizzle", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: " Chance of Drizzle"
 				attributeState "chancelightrain", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: " Chance of Light Rain"
@@ -357,17 +369,17 @@ metadata {
 				attributeState "rain-windy",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: " Rain and Windy"
 				attributeState "rain-windy!",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: " Rain and Dangerously Windy"
 				attributeState "heavyrain", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/12.png", 	label: " Heavy Rain"
-				attributeState "heavyrain-breezy",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/12.png", 	label: " Heavy Rain and Breezy"
-				attributeState "heavyrain-windy", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/12.png", 	label: " Heavy Rain and Windy"
-				attributeState "heavyrain-windy!", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/12.png", 	label: " Heavy Rain and Dangerously Windy"
+				attributeState "heavyrain-breezy",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: " Heavy Rain and Breezy"
+				attributeState "heavyrain-windy", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: " Heavy Rain and Windy"
+				attributeState "heavyrain-windy!", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: " Heavy Rain and Dangerously Windy"
 				attributeState "drizzle",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/9.png", 	label: " Drizzle"
 				attributeState "lightdrizzle",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/9.png", 	label: " Light Drizzle"
 				attributeState "heavydrizzle",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/9.png", 	label: " Heavy Drizzle"
 				attributeState "lightrain",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: " Light Rain"
 				attributeState "scattered-showers",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: " Scattered Showers"
-				attributeState "lightrain-breezy",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: " Light Rain and Breezy"
-				attributeState "lightrain-windy",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: " Light Rain and Windy"
-				attributeState "lightrain-windy!",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: " Light Rain and Dangerously Windy"
+				attributeState "lightrain-breezy",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: " Light Rain and Breezy"
+				attributeState "lightrain-windy",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: " Light Rain and Windy"
+				attributeState "lightrain-windy!",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: " Light Rain and Dangerously Windy"
 				attributeState "sleet",						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/10.png", 	label: " Sleet"
 				attributeState "lightsleet",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/8.png", 	label: " Light Sleet"
 				attributeState "heavysleet",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/10.png", 	label: " Heavy Sleet"
@@ -384,29 +396,29 @@ metadata {
 				attributeState "thunderstorm", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/0.png", 	label: " Thunderstorm"
 				attributeState "windy",						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Windy"
 				attributeState "wind",						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Windy"
-				attributeState "sandstorm",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/19.png", 	label: " Blowing Dust / Sandstorm"
+				attributeState "sandstorm",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/19b.png", 	label: " Blowing Dust / Sandstorm"
 				attributeState "blowing-spray",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Windy / Blowing Spray"
 				attributeState "wind!",						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Dangerously Windy"
 				attributeState "wind-foggy",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Windy and Foggy"
-				attributeState "wind-overcast",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Windy and Overcast"
-				attributeState "wind-overcast!",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Dangerously Windy and Overcast"
-				attributeState "wind-partlycloudy",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Windy and Partly Cloudy"
-				attributeState "wind-partlycloudy!", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Dangerously Windy and Partly Cloudy"
-				attributeState "wind-mostlycloudy",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Windy and Mostly Cloudy"
-				attributeState "wind-mostlycloudy!",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Dangerously Windy and Mostly Cloudy"
+				attributeState "wind-overcast",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24c.png", 	label: " Windy and Overcast"
+				attributeState "wind-overcast!",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24c.png", 	label: " Dangerously Windy and Overcast"
+				attributeState "wind-partlycloudy",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/30b.png", 	label: " Windy and Partly Cloudy"
+				attributeState "wind-partlycloudy!", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/30b.png", 	label: " Dangerously Windy and Partly Cloudy"
+				attributeState "wind-mostlycloudy",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28b.png", 	label: " Windy and Mostly Cloudy"
+				attributeState "wind-mostlycloudy!",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28b.png", 	label: " Dangerously Windy and Mostly Cloudy"
 				attributeState "breezy",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Breezy"
-				attributeState "breezy-overcast",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Breezy and Overcast"
-				attributeState "breezy-partlycloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Breezy and Partly Cloudy"
-				attributeState "breezy-mostlycloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Breezy and Mostly Cloudy"
-				attributeState "breezy-foggy", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Breezy and Foggy"
-				attributeState "tornado",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/44.png",	label: " Tornado"
+				attributeState "breezy-overcast",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24b.png", 	label: " Breezy and Overcast"
+				attributeState "breezy-partlycloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/30b.png", 	label: " Breezy and Partly Cloudy"
+				attributeState "breezy-mostlycloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28b.png", 	label: " Breezy and Mostly Cloudy"
+				attributeState "breezy-foggy", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/20b.png", 	label: " Breezy and Foggy"
+				attributeState "tornado",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/to.png",	label: " Tornado"
 				attributeState "hail",						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/18.png",	label: " Hail Storm"
 				attributeState "thunder-hail",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png",	label: " Thunder and Hail Storm"
 				attributeState "rain-hail",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/7.png",	label: " Mixed Rain and Hail"
 				attributeState "nt_chanceflurries", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: " Chance of Flurries"
 				attributeState "chancelightsnow-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png", 	label: " Possible Light Snow"
-				attributeState "chancelightsnowbz-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png", 	label: " Possible Light Snow and Breezy"
-				attributeState "chancelightsnowy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png", 	label: " Possible Light Snow and Windy"
+				attributeState "chancelightsnowbz-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46b.png", 	label: " Possible Light Snow and Breezy"
+				attributeState "chancelightsnowy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46b.png", 	label: " Possible Light Snow and Windy"
 				attributeState "nt_chancerain", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: " Chance of Rain"
 				attributeState "chancerain-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: " Chance of Rain"
 				attributeState "chancelightrain-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/45.png", 	label: " Chance of Light Rain"
@@ -418,14 +430,14 @@ metadata {
 				attributeState "chancetstorms-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/47.png",	label: " Chance of Thunderstorms"
 				attributeState "nt_clear", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31.png", 	label: " Clear"
 				attributeState "clear-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31.png", 	label: " Clear"
-				attributeState "humid-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31.png", 	label: " Humid"
+				attributeState "humid-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/33.png", 	label: " Humid"
 				attributeState "nt_sunny", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31.png", 	label: " Clear"
 				attributeState "nt_cloudy", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/26.png", 	label: " Overcast"
 				attributeState "cloudy-night", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/26.png", 	label: " Overcast"
 				attributeState "humid-cloudy-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/26.png", 	label: " Humid and Overcast"	
-				attributeState "nt_fog", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/20.png", 	label: " Foggy"
-				attributeState "fog-night", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/20.png", 	label: " Foggy"
-				attributeState "nt_hazy", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/21.png", 	label: " Hazy"
+				attributeState "nt_fog", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31b.png", 	label: " Foggy"
+				attributeState "fog-night", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31b.png", 	label: " Foggy"
+				attributeState "nt_hazy", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31b.png", 	label: " Hazy"
 				attributeState "nt_mostlycloudy", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27.png",	label: " Mostly Cloudy"
 				attributeState "mostly-cloudy-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27.png",	label: " Mostly Cloudy"
 				attributeState "humid-mostly-cloudy-night",	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27.png", 	label: " Humid and Mostly Cloudy"
@@ -440,21 +452,21 @@ metadata {
 				attributeState "lightsnow-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/14.png", 	label: " Light Snow"
 				attributeState "nt_rain", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: " Rain"
 				attributeState "rain-night", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: " Rain"
-				attributeState "rain-breezy-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: " Rain and Breezy"
-				attributeState "rain-windy-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: " Rain and Windy"
-				attributeState "rain-windy-night!", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: " Rain and Dangerously Windy"
+				attributeState "rain-breezy-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: " Rain and Breezy"
+				attributeState "rain-windy-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: " Rain and Windy"
+				attributeState "rain-windy-night!", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: " Rain and Dangerously Windy"
 				attributeState "heavyrain-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/12.png", 	label: " Heavy Rain"
-				attributeState "heavyrain-breezy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/12.png",	label: " Heavy Rain and Breezy"
-				attributeState "heavyrain-windy-night",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/12.png", 	label: " Heavy Rain and Windy"
-				attributeState "heavyrain-windy-night!", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/12.png",	label: " Heavy Rain and Dangerously Windy"
+				attributeState "heavyrain-breezy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png",	label: " Heavy Rain and Breezy"
+				attributeState "heavyrain-windy-night",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: " Heavy Rain and Windy"
+				attributeState "heavyrain-windy-night!", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png",	label: " Heavy Rain and Dangerously Windy"
 				attributeState "nt_drizzle", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/9.png", 	label: " Drizzle"
 				attributeState "drizzle-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/9.png", 	label: " Drizzle"
 				attributeState "nt_lightrain", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: " Light Rain"
 				attributeState "lightrain-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: " Light Rain"	
 				attributeState "nt_scattered-rain", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: " Scattered Showers"
-				attributeState "lightrain-breezy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: " Light Rain and Breezy"
-				attributeState "lightrain-windy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: " Light Rain and Windy"
-				attributeState "lightrain-windy-night!", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: " Light Rain and Dangerously Windy"
+				attributeState "lightrain-breezy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: " Light Rain and Breezy"
+				attributeState "lightrain-windy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: " Light Rain and Windy"
+				attributeState "lightrain-windy-night!", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: " Light Rain and Dangerously Windy"
 				attributeState "nt_sleet", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png",	label: " Sleet"
 				attributeState "sleet-night", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png",	label: " Sleet"
 				attributeState "lightsleet-night",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png",	label: " Sleet"
@@ -476,25 +488,26 @@ metadata {
 				attributeState "windy-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Windy"
 				attributeState "wind-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Windy"
 				attributeState "wind-night!",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Dangerously Windy"
-				attributeState "wind-foggy-night",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Windy and Foggy"
-				attributeState "wind-overcast-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Windy and Overcast"
-				attributeState "wind-overcast-night!", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Dangerously Windy and Overcast"
-				attributeState "wind-partlycloudy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Windy and Partly Cloudy"
-				attributeState "wind-partlycloudy-night!", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Dangerously Windy and Partly Cloudy"
-				attributeState "wind-mostlycloudy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Windy and Mostly Cloudy"
-				attributeState "wind-mostly-cloudy-night!",	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Dangerously Windy and Mostly Cloudy"
+				attributeState "wind-foggy-night",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/20b.png", 	label: " Windy and Foggy"
+				attributeState "wind-overcast-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24b.png", 	label: " Windy and Overcast"
+				attributeState "wind-overcast-night!", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24b.png", 	label: " Dangerously Windy and Overcast"
+				attributeState "wind-partlycloudy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/29b.png", 	label: " Windy and Partly Cloudy"
+				attributeState "wind-partlycloudy-night!", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/29b.png", 	label: " Dangerously Windy and Partly Cloudy"
+				attributeState "wind-mostlycloudy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27b.png", 	label: " Windy and Mostly Cloudy"
+				attributeState "wind-mostly-cloudy-night!",	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27b.png", 	label: " Dangerously Windy and Mostly Cloudy"
 				attributeState "breezy-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Breezy"
-				attributeState "breezy-overcast-night",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Breezy and Overcast"
-				attributeState "breezy-partlycloudy-night",	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Breezy and Partly Cloudy"
-				attributeState "breezy-mostlycloudy-night",	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Breezy and Mostly Cloudy"
-				attributeState "breezy-foggy-night",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: " Breezy and Foggy"
-				attributeState "nt_tornado",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/44.png",	label: " Tornado"
-				attributeState "tornado-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/44.png",	label: " Tornado"
-				attributeState "nt_hail",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png",	label: " Hail"
-				attributeState "hail-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png",	label: " Hail"
-				attributeState "unknown",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/na.png",	label: " Not Available"
-				attributeState "hurricane",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/na.png",	label: " Hurricane"
-				attributeState "tropical-storm",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/na.png",	label: " Tropical Storm"
+				attributeState "breezy-overcast-night",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24b.png", 	label: " Breezy and Overcast"
+				attributeState "breezy-partlycloudy-night",	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/29b.png", 	label: " Breezy and Partly Cloudy"
+				attributeState "breezy-mostlycloudy-night",	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27b.png", 	label: " Breezy and Mostly Cloudy"
+				attributeState "breezy-foggy-night",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/20b.png", 	label: " Breezy and Foggy"
+				attributeState "nt_tornado",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/to.png",	label: " Tornado"
+				attributeState "tornado-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/to.png",	label: " Tornado"
+				attributeState "nt_hail",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46b.png",	label: " Hail"
+				attributeState "hail-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46b.png",	label: " Hail"
+                attributeState "na",						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/na.png",	label: " Not Available"
+				attributeState "unknown",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/na.png",	label: " Unknown"
+				attributeState "hurricane",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/hc.png",	label: " Hurricane"
+				attributeState "tropical-storm",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/38.png",	label: " Tropical Storm"
 			}
         }    
         standardTile('moonPhase', 'device.moonPhase', decoration: 'flat', inactiveLabel: false, width: 1, height: 1) {
@@ -1044,7 +1057,7 @@ def updateWeatherTiles() {
         }
         
     // Yesterday data
-        if (state.meteoWeather.yesterday) {
+        if (state.meteoWeather?.yesterday) {
         	if (debug) "updateWeatherTiles() - handling yesterday's data"
             if (debug && shortStats) log.debug "state.meteoWeather.yesterday: ${state.meteoWeather.yesterday}"
             
@@ -1087,11 +1100,11 @@ def updateWeatherTiles() {
             	if (debug) "updateWeatherTiles() - updating day/night"
                 updateTwcTiles()
                 if (val == 1) {
-                	send(name: 'isDay', value: 1, displayed: true, descriptionText: 'Daybreak' )
-                	send(name: 'isNight', value: 0, displayed: false)
+                	send(name: 'isDay', value: 1, displayed: true, descriptionText: 'Daybreak (civil sunrise)' )
+                	send(name: 'isNight', value: 0, displayed: true, descriptionText: 'Dawn begins' )
                 } else {
-					send(name: 'isDay', value: 0, displayed: true, descriptionText: 'Nightfall')
-                    send(name: 'isNight', value: 1, displayed: false)
+					send(name: 'isDay', value: 0, displayed: true, descriptionText: 'Nightfall (civil sunset)')
+                    send(name: 'isNight', value: 1, displayed: true, descriptionText: 'Dusk begins')
                 }
             }
             
@@ -1125,9 +1138,9 @@ def updateWeatherTiles() {
             	if ((val != null) && (val == "")) val = null
                 t = roundIt(val, ud+1)
                 if ((t != null) && (theTemp != val)) {
-                    send(name: "heatIndex", value: t , unit: unit, displayed: false)
+                    send(name: "heatIndex", value: t , unit: unit, displayed: true, descriptionText: "Heat Index is ${t}°${unit}")
                     state.MTfeelsLike = roundIt(t, 1)
-                    if (state.isST) send(name: "heatIndexDisplay", value: t + '°', unit: unit, descriptionText: "Heat Index is ${t}°${unit}")
+                    if (state.isST) send(name: "heatIndexDisplay", value: "${t}°", unit: unit, displayed: false, descriptionText: '')
                 } else if (t != null) {
                     send(name: 'heatIndex', value: t, unit: unit, descriptionText: "Heat Index is ${t}°${unit} - same as current temperature")
                     if (state.isST) send(name: 'heatIndexDisplay', value: '=', displayed: false)
@@ -1158,8 +1171,8 @@ def updateWeatherTiles() {
                 	if (isStateChange( device, 'windChill', t as String) || (state.MTfeelsLike == "")) {
                         if (theTemp != val) {			
                             if (state.MTfeelsLike == "") state.MTfeelsLike = roundIt(t, 1)
-                            send(name: "windChill", value: t, unit: unit, displayed: false, isStateChange: true)
-                            if (state.isST) send(name: "windChillDisplay", value: t + '°', unit: unit, descriptionText: "Wind Chill is ${t}°${unit}", isStateChange: true)
+                            send(name: "windChill", value: t, unit: unit, displayed: true, descriptionText: "Wind Chill is ${t}°${unit}", isStateChange: true)
+                            if (state.isST) send(name: "windChillDisplay", value: "${t}°", unit: unit, displayed: false, isStateChange: true, descriptionText: '')
                         } else {
                             send(name: 'windChill', value: t, unit: unit, descriptionText: "Wind Chill is ${t}°${unit} - same as current temperature", isStateChange: true)
                             if (state.isST) send(name: 'windChillDisplay', value: '=', displayed: false, isStateChange: true)
@@ -1171,6 +1184,7 @@ def updateWeatherTiles() {
                     if (state.isST) send(name: 'windChillDisplay', value: null, displayed: false)
                 }
                 if (state.MTfeelsLike == "") state.MTfeelsLike = state.MTtemperature
+                send(name: 'feelsLike', value: state.MTfeelsLike, unit: unit, displayed: true, descriptionText: "Feels Like temperature is ${t}°${unit}")
             }
 			
         // Humidity
@@ -1468,12 +1482,12 @@ def updateWeatherTiles() {
             }
 
 		// Date stuff
-        	if ( ((shortStats?state.meteoWeather.current[0] :state.meteoWeather.current.date) 		!= device.currentValue('currentDate')) || 
-            	 ((shortStats?state.meteoWeather.current[26]:state.meteoWeather.current.sunrise) 	!= device.currentValue('sunrise')) ||
-                 ((shortStats?state.meteoWeather.current[27]:state.meteoWeather.current.sunset) 	!= device.currentValue('sunset')) || 
-                 ((shortStats?state.meteoWeather.current[23]:state.meteoWeather.current.dayHours)	!= device.currentValue('dayHours')) ||
-                 ((shortStats?state.meteoWeather.current[34]:state.meteoWeather.current.moonrise) 	!= device.currentValue('moonrise')) || 
-                 ((shortStats?state.meteoWeather.current[35]:state.meteoWeather.current.moonset) 	!= device.currentValue('moonset')) ) {
+        	if ( ((shortStats ? state.meteoWeather.current[0]  : state.meteoWeather.current.date) 		!= device.currentValue('currentDate')) || 
+            	 ((shortStats ? state.meteoWeather.current[26] : state.meteoWeather.current.sunrise) 	!= device.currentValue('sunrise')) ||
+                 ((shortStats ? state.meteoWeather.current[27] : state.meteoWeather.current.sunset) 	!= device.currentValue('sunset')) || 
+                 ((shortStats ? state.meteoWeather.current[23] : state.meteoWeather.current.dayHours)	!= device.currentValue('dayHours')) ||
+                 ((shortStats ? state.meteoWeather.current[34] : state.meteoWeather.current.moonrise) 	!= device.currentValue('moonrise')) || 
+                 ((shortStats ? state.meteoWeather.current[35] : state.meteoWeather.current.moonset) 	!= device.currentValue('moonset')) ) {
             	// If any Date/Time has changed, time to update them all
                 if (debug) log.debug "updateWeatherTiles() - updating dates"
                 
@@ -1650,11 +1664,13 @@ def darkSkyCallback(response, data) {
     if (debug) log.debug "darkSkyCallback() - isNight: ${isNight}, icon: ${icon}"
     
     // Lots of comparisons to do - only do them if something changed
-    def iconChanged = ((state.isNight == null) || (state.isNight != isNight) || (icon && (icon != device.currentValue('weatherIcon'))) || (darkSky?.currently?.summary == null) || (darkSky.currently.summary != device.currentValue('weather')))
+    def iconChanged = ((state.isNight == null) || (state.isNight != isNight) || (icon != state.darkSkyIcon) || (darkSky?.currently?.summary == null) || (darkSky.currently.summary != device.currentValue('weather')))
     if (iconChanged) {
     	state.isNight = isNight
-        if (debug) log.error "icon changed"
+        state.darkSkyIcon = icon					// Save the unembellished icon that DarkSky gave us
+        if (debug) log.debug "icon changed"
         if (isNight) {
+        	// Nighttime icons
             switch(icon) {
                 case 'rain':
                     if (darkSky.currently.summary == 'Drizzle') {
@@ -1740,9 +1756,16 @@ def darkSkyCallback(response, data) {
                 case 'breezy':
                 case 'tornado':
                     icon = icon + '-night'		// adjust icons for night time that DarkSky doesn't
-                    break;    
+                    break;
+                case '':
+                	icon = 'unknown'
+                    break;
+                default:
+                    log.warn "Unknown DarkSky icon (${icon}), weather is: ${darkSky.currently.summary}"
+                    icon = 'na'
             }
         } else { 
+        	// Daytime Icons
             switch(icon) {
                 case 'rain':
                     // rain=[Possible Light Rain, Light Rain, Rain, Heavy Rain, Drizzle, Light Rain and Breezy, Light Rain and Windy, 
@@ -1815,6 +1838,12 @@ def darkSkyCallback(response, data) {
                         //if 		(darkSky.currently.summary.startsWith('Danger')) 	  icon += '!'
                     }
                     break;
+                case '':
+                	icon = 'unknown'
+                    break;
+                default:
+                    log.warn "Unrecognized DarkSky icon (${icon}), weather is: ${darkSky.currently.summary}"
+                    icon = 'na'
             }
 
         }
@@ -2118,14 +2147,16 @@ def getWindDirText( windText ) {
 private updateMeteoTime(timeStr, stateName) {
 	def t = timeToday(timeStr, location.timeZone).getTime()
 	def tAPM = new Date(t).format('h:mma', location.timeZone).toLowerCase()
-   	send(name: stateName, value: timeStr, displayed: false)
-    send(name: stateName + 'APM', value: tAPM, descriptionText: stateName.capitalize() + ' at ' + tAPM)
+    def stateCap = stateName.capitalize()
+    def txt = (stateName == 'sunrise') ? 'Sunrise (astronimical)' : ( (stateName == 'sunset') ? 'Sunset (astronomical)' : stateCap )
+   	send(name: stateName, value: timeStr, displayed: true, descriptionText: txt)
+    send(name: stateName + 'APM', value: tAPM, descriptionText: stateCap + ' at ' + tAPM)
     send(name: stateName + 'Epoch', value: t, displayed: false)
-	if (stateName.startsWith('sun') || stateName.startsWith('moon')) send(name: 'local' + stateName.capitalize(), value: timeStr, displayed: false, descriptionText: '')
+	if (stateName.startsWith('sun') || stateName.startsWith('moon')) send(name: 'local' + stateCap, value: timeStr, displayed: false, descriptionText: '')
 }
 private clearMeteoTime(stateName) {
-	send(name: stateName, value: null, displayed: false)
-    send(name: stateName + 'APM', value: null, descriptionText: 'No ' + stateName + 'today')
+	send(name: stateName, value: null, displayed: true)
+    send(name: stateName + 'APM', value: null, descriptionText: 'No ' + stateName + ' today')
     send(name: stateName + 'Epoch', value: null, displayed: false)
 	if (stateName.startsWith('sun') || stateName.startsWith('moon')) send(name: 'local' + stateName.capitalize(), value: null, displayed: false)
 }
@@ -2158,7 +2189,7 @@ private makeMyTile() {
                         ( ((state.MTuvi!=null)&&(state.MTuvi!="")) ? '<img src=' + state.iconStore + "wuv.png${iconClose}>" + " ${state.MTuvi} uvi</div>" : '</div>') 
                    //( (state.MTsunrise != "") ? ('<img src=' + state.iconStore + "wsr.png${iconClose}>" + "${state.MTsunrise}" + ' &nbsp; <img src=' + state.iconStore + "wss.png${iconClose}>" + "${state.MTsunset}</div>") : '</div>' )
     int mysize = mytext.size()
-    if (mysize > 1024) log.warn "myTile size is greater than 1024 characters! (${mysize})"
+    if (state.isHE && (mysize > 1024)) log.warn "myTile size is greater than 1024 characters! (${mysize})"
     if (debug) log.debug "mytext (${mysize}): ${mytext}"
     send(name: 'myTile', value: mytext, displayed: false, descriptionText: "")
 }
@@ -2622,6 +2653,7 @@ def getYesterdayTemplate() {
 def getCurrentTemplate() {
 	String d = getMeteoSensorID()
     String r = (height_units && (height_units == 'height_in')) ? 'in' : ''
+	String a = avgUpdates ? "avg${updateMins}" : 'act'
     // String d = '0'
     if (shortStats) { //shortStats
         // 0:date, 1:time, 2:humidity (out), 3:humidity (in), 
@@ -2634,42 +2666,44 @@ def getCurrentTemplate() {
         // 26:sunrise, 27:sunset, 28:dayMinutes, 29:uvIndex,
         // 30:solRad, 31:lunar age, 32:lunar percent, 33:lunar segment,
         // 34:moonrise, 35: moonset, 36:isday
-    	return '"current":["[M]/[D]/[YY]","[H]:[mm]:[ss] [apm]",' + "[th${d}hum-act=.2:\"\"],[thb${d}hum-act=.2:\"\"]," +
+		return '"current":["[M]/[D]/[YY]","[H]:[mm]:[ss] [apm]",' + "[th${d}hum-${a}=.2:\"\"],[thb${d}hum-${a}=.2:\"\"]," +
 				temperatureTemplate + currentRainfall + pressureTemplate + windTemplate +
                 "\"[mbsystem-daylength:]\",[th${d}hum-dmax=.2:\"\"],[th${d}hum-dmin=.2:\"\"]," +
-                "\"[mbsystem-sunrise:]\",\"[mbsystem-sunset:]\",[mbsystem-daylength=mins.0:\"\"],[uv${d}index-act:\"\"]," +
-                "[sol${d}rad-act:\"\"],[mbsystem-lunarage:\"\"],[mbsystem-lunarpercent:\"\"],[mbsystem-lunarsegment:\"\"]," +
+                "\"[mbsystem-sunrise:]\",\"[mbsystem-sunset:]\",[mbsystem-daylength=mins.0:\"\"],[uv${d}index-${a}:\"\"]," +
+                "[sol${d}rad-${a}:\"\"],[mbsystem-lunarage:\"\"],[mbsystem-lunarpercent:\"\"],[mbsystem-lunarsegment:\"\"]," +
                 '"[mbsystem-moonrise:]","[mbsystem-moonset:]",[mbsystem-isday=.0:""]]}'
                             
     } else {
-        return "\"current\":{\"date\":\"[M]/[D]/[YY]\",\"time\":\"[H]:[mm]:[ss] [apm]\",\"humOut\":[th${d}hum-act=.2:\"\"],\"humIn\":[thb${d}hum-act=.2:\"\"]," + 
+        return "\"current\":{\"date\":\"[M]/[D]/[YY]\",\"time\":\"[H]:[mm]:[ss] [apm]\",\"humOut\":[th${d}hum-${a}=.2:\"\"],\"humIn\":[thb${d}hum-${a}=.2:\"\"]," + 
         		temperatureTemplate + currentRainfall + pressureTemplate + windTemplate +
                 "\"dayHours\":\"[mbsystem-daylength:]\",\"highHum\":[th${d}hum-dmax=.2:\"\"],\"lowHum\":[th${d}hum-dmin=.2:\"\"]," +
-                "\"sunrise\":\"[mbsystem-sunrise:]\",\"sunset\":\"[mbsystem-sunset:]\",\"dayMins\":[mbsystem-daylength=mins.0:\"\"],\"uvIndex\":[uv${d}index-act:\"\"]," +
-                "\"solRad\":[sol${d}rad-act:\"\"],\"lunarAge\":[mbsystem-lunarage:\"\"],\"lunarPct\":[mbsystem-lunarpercent:\"\"],\"lunarSgt\":[mbsystem-lunarsegment:\"\"]," +
+                "\"sunrise\":\"[mbsystem-sunrise:]\",\"sunset\":\"[mbsystem-sunset:]\",\"dayMins\":[mbsystem-daylength=mins.0:\"\"],\"uvIndex\":[uv${d}index-${a}:\"\"]," +
+                "\"solRad\":[sol${d}rad-${a}:\"\"],\"lunarAge\":[mbsystem-lunarage:\"\"],\"lunarPct\":[mbsystem-lunarpercent:\"\"],\"lunarSgt\":[mbsystem-lunarsegment:\"\"]," +
                 '"moonrise":"[mbsystem-moonrise:]","moonset":"[mbsystem-moonset:]","isDay":[mbsystem-isday=.0:""]}}'
 	}
 }
 def getTemperatureTemplate() { 
 	String s = getTemperatureScale() 
-    String d = getMeteoSensorID() 
+    String d = getMeteoSensorID()
+	String a = avgUpdates ? "avg${updateMins}" : 'act'
     // String d = '0'
     if (shortStats) {
-    	return "[th${d}temp-act=${s}.2:\"\"],[th${d}dew-act=${s}.2:\"\"],[th${d}heatindex-act=${s}.2:\"\"],[wind${d}chill-act=${s}.2:\"\"]," +
-    				"[thb${d}temp-act=${s}.2:\"\"],[thb${d}dew-act=${s}.2:\"\"],[th${d}temp-dmax=${s}.2:\"\"],[th${d}temp-dmin=${s}.2:\"\"],"
+    	return "[th${d}temp-${a}=${s}.2:\"\"],[th${d}dew-${a}=${s}.2:\"\"],[th${d}heatindex-${a}=${s}.2:\"\"],[wind${d}chill-${a}=${s}.2:\"\"]," +
+    				"[thb${d}temp-${a}=${s}.2:\"\"],[thb${d}dew-${a}=${s}.2:\"\"],[th${d}temp-dmax=${s}.2:\"\"],[th${d}temp-dmin=${s}.2:\"\"],"
     } else {
-		return "\"tempOut\":[th${d}temp-act=${s}.2:\"\"],\"dewOut\":[th${d}dew-act=${s}.2:\"\"],\"heatIndex\":[th${d}heatindex-act=${s}.2:\"\"],\"windChill\":[wind${d}chill-act=${s}.2:\"\"]," +
-    			"\"tempIn\":[thb${d}temp-act=${s}.2:\"\"],\"dewIn\":[thb${d}dew-act=${s}.2:\"\"],\"highTemp\":[th${d}temp-dmax=${s}.2:\"\"],\"lowTemp\":[th${d}temp-dmin=${s}.2:\"\"],"
+		return "\"tempOut\":[th${d}temp-${a}=${s}.2:\"\"],\"dewOut\":[th${d}dew-${a}=${s}.2:\"\"],\"heatIndex\":[th${d}heatindex-${a}=${s}.2:\"\"],\"windChill\":[wind${d}chill-${a}=${s}.2:\"\"]," +
+    			"\"tempIn\":[thb${d}temp-${a}=${s}.2:\"\"],\"dewIn\":[thb${d}dew-${a}=${s}.2:\"\"],\"highTemp\":[th${d}temp-dmax=${s}.2:\"\"],\"lowTemp\":[th${d}temp-dmin=${s}.2:\"\"],"
     }
 }
 def getPressureTemplate() {
 	String p = (pres_units && (pres_units == 'press_in')) ? 'inHg' : 'mmHg'
-    String d = getMeteoSensorID() 
+    String d = getMeteoSensorID()
+	String a = avgUpdates ? "avg${updateMins}" : 'act'
     // String d = '0'
     if (shortStats) {
-    	return "[thb${d}seapress-act=${p}.2:\"\"],\"[thb${d}seapress-delta10=enbarotrend:]\","
+    	return "[thb${d}seapress-${a}=${p}.2:\"\"],\"[thb${d}seapress-delta10=enbarotrend:]\","
     } else {
-		return "\"pressure\":[thb${d}seapress-act=${p}.2:\"\"],\"pTrend\":\"[thb${d}seapress-delta10=enbarotrend:]\","
+		return "\"pressure\":[thb${d}seapress-${a}=${p}.2:\"\"],\"pTrend\":\"[thb${d}seapress-delta10=enbarotrend:]\","
     }
 }
 def getYesterdayRainfall() {
@@ -2685,23 +2719,25 @@ def getYesterdayRainfall() {
 def getCurrentRainfall() {
 	String r = (height_units && (height_units == 'height_in')) ? 'in' : ''
     String d = getMeteoSensorID()
+	String a = avgUpdates ? "avg${updateMins}" : 'act'
     // String d = '0'
     if (shortStats) {
-    	return "[rain${d}total-daysum=${r}.3:\"\"],[rain${d}total-sum1h=${r}.3:\"\"],[sol${d}evo-act=${r}.3:\"\"],[rain${d}rate-act=${r}.3:\"\"],"
+    	return "[rain${d}total-daysum=${r}.3:\"\"],[rain${d}total-sum1h=${r}.3:\"\"],[sol${d}evo-${a}=${r}.3:\"\"],[rain${d}rate-${a}=${r}.3:\"\"],"
     } else {
-		return "\"rainfall\":[rain${d}total-daysum=${r}.3:\"\"],\"rainLastHour\":[rain${d}total-sum1h=${r}.3:\"\"],\"evo\":[sol${d}evo-act=${r}.3:\"\"],\"rainRate\":[rain${d}rate-act=${r}.3:\"\"],"
+		return "\"rainfall\":[rain${d}total-daysum=${r}.3:\"\"],\"rainLastHour\":[rain${d}total-sum1h=${r}.3:\"\"],\"evo\":[sol${d}evo-${a}=${r}.3:\"\"],\"rainRate\":[rain${d}rate-${a}=${r}.3:\"\"],"
     }
 }
 def getWindTemplate() {
     String s = (speed_units && (speed_units == 'speed_mph')) ? 'mph' : 'kmh'
     String d = getMeteoSensorID()
+	String a = avgUpdates ? "avg${updateMins}" : 'act'
     // String d = '0'
     if (shortStats) {
-    	return "\"[wind${d}dir-act=endir:N/A]\",[wind${d}wind-max10=${s}.2:\"\"],[wind${d}dir-act:\"\"],[wind${d}wind-act=${s}.2:\"\"],[wind${d}wind-act=bft.0:\"\"],"
+		return "\"[wind${d}dir-${a}=endir:N/A]\",[wind${d}wind-max10=${s}.2:\"\"],[wind${d}dir-${a}:\"\"],[wind${d}wind-${a}=${s}.2:\"\"],[wind${d}wind-${a}=bft.0:\"\"],"
     } else {
-		return "\"windTxt\":\"[wind${d}dir-act=endir:N/A]\",\"windGust\":[wind${d}wind-max10=${s}.2:\"\"],\"windDir\":[wind${d}dir-act:\"\"],\"wind\":[wind${d}wind-act=${s}.2:\"\"]," +
-        		"\"windBft\":[wind${d}wind-act=bft.0:\"\"],"
-    			// "\"windTxt\":\"[wind${d}dir-act=endir:]\"," "[wind*dir-act=endir:]" \"windTxt\":\"[wind${d}dir-act=endir.3:N/A]\",
+		return "\"windTxt\":\"[wind${d}dir-${a}=endir:N/A]\",\"windGust\":[wind${d}wind-max10=${s}.2:\"\"],\"windDir\":[wind${d}dir-${a}:\"\"],\"wind\":[wind${d}wind-${a}=${s}.2:\"\"]," +
+        		"\"windBft\":[wind${d}wind-${a}=bft.0:\"\"],"
+    			// "\"windTxt\":\"[wind${d}dir-${a}=endir:]\"," "[wind*dir-${a}=endir:]" \"windTxt\":\"[wind${d}dir-${a}=endir.3:N/A]\",
     }
 }
 def getTemperatureColors() {
@@ -2734,12 +2770,12 @@ String getBeaufortText(bftForce) {
 		case 4: return 'a moderate breeze';
 		case 5: return 'a fresh breeze';
 		case 6: return 'a strong breeze';
-		case 7: return 'near gale force winds';
+		case 7: return 'near gale winds';
 		case 8: return 'gale force winds';
-		case 9: return 'strong gale force winds';
+		case 9: return 'strong gale winds';
 		case 10: return 'storm force winds';
-		case 11: return 'violent storm force winds';
-		case 12: return 'hurricane strength winds';
+		case 11: return 'violent storm winds';
+		case 12: return 'hurricane winds';
 		default: return ''
 	}
 }
@@ -2758,8 +2794,8 @@ private getImgText(weatherCode){
 @Field final List LUTable = [
 		[ name: "chanceflurries", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: "Chance of Flurries" ],
 		[ name: "chancelightsnow", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: "Possible Light Snow" ],
-		[ name: "chancelightsnowbreezy", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: "Possible Light Snow and Breezy" ],
-		[ name: "chancelightsnowwindy", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: "Possible Light Snow and Windy" ],
+		[ name: "chancelightsnowbreezy", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41b.png", 	label: "Possible Light Snow and Breezy" ],
+		[ name: "chancelightsnowwindy", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41b.png", 	label: "Possible Light Snow and Windy" ],
 		[ name: "chancerain", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: "Chance of Rain" ],
 		[ name: "chancedrizzle", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: "Chance of Drizzle" ],
 		[ name: "chancelightrain", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: "Chance of Light Rain" ],
@@ -2797,17 +2833,17 @@ private getImgText(weatherCode){
 		[ name: "rain-windy",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: "Rain and Windy" ],
 		[ name: "rain-windy!",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: "Rain and Dangerously Windy" ],
 		[ name: "heavyrain", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/12.png", 	label: "Heavy Rain" ],
-		[ name: "heavyrain-breezy",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/12.png", 	label: "Heavy Rain and Breezy" ],
-		[ name: "heavyrain-windy", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/12.png", 	label: "Heavy Rain and Windy" ],
-		[ name: "heavyrain-windy!", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/12.png", 	label: "Heavy Rain and Dangerously Windy" ],
+		[ name: "heavyrain-breezy",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: "Heavy Rain and Breezy" ],
+		[ name: "heavyrain-windy", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: "Heavy Rain and Windy" ],
+		[ name: "heavyrain-windy!", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: "Heavy Rain and Dangerously Windy" ],
 		[ name: "drizzle",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/9.png", 	label: "Drizzle" ],
 		[ name: "lightdrizzle",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/9.png", 	label: "Light Drizzle" ],
 		[ name: "heavydrizzle",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/9.png", 	label: "Heavy Drizzle" ],
 		[ name: "lightrain",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: "Light Rain" ],
 		[ name: "scattered-showers",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: "Scattered Showers" ],
-		[ name: "lightrain-breezy",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: "Light Rain and Breezy" ],
-		[ name: "lightrain-windy",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: "Light Rain and Windy" ],
-		[ name: "lightrain-windy!",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: "Light Rain and Dangerously Windy" ],	
+		[ name: "lightrain-breezy",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: "Light Rain and Breezy" ],
+		[ name: "lightrain-windy",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: "Light Rain and Windy" ],
+		[ name: "lightrain-windy!",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: "Light Rain and Dangerously Windy" ],	
 		[ name: "sleet",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/10.png", 	label: "Sleet" ],
 		[ name: "lightsleet",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/8.png", 	label: "Light Sleet" ],
 		[ name: "heavysleet",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/10.png", 	label: "Heavy Sleet" ],
@@ -2824,29 +2860,29 @@ private getImgText(weatherCode){
 		[ name: "thunderstorm", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/0.png", 	label: "Thunderstorm" ],
 		[ name: "windy",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy" ],
 		[ name: "wind",						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy" ],
-		[ name: "sandstorm",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/19.png", 	label: "Blowing Dust / Sandstorm" ],
+		[ name: "sandstorm",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/19b.png", 	label: "Blowing Dust / Sandstorm" ],
 		[ name: "blowing-spray",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy / Blowing Spray" ],
 		[ name: "wind!",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Dangerously Windy" ],
 		[ name: "wind-foggy",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy and Foggy" ],
-		[ name: "wind-overcast",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy and Overcast" ],
-		[ name: "wind-overcast!",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Dangerously Windy and Overcast" ],
-		[ name: "wind-partlycloudy",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy and Partly Cloudy" ],
-		[ name: "wind-partlycloudy!", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Dangerously Windy and Partly Cloudy" ],
-		[ name: "wind-mostlycloudy",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy and Mostly Cloudy" ],
-		[ name: "wind-mostlycloudy!",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Dangerously Windy and Mostly Cloudy" ],
+		[ name: "wind-overcast",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24c.png", 	label: "Windy and Overcast" ],
+		[ name: "wind-overcast!",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24c.png", 	label: "Dangerously Windy and Overcast" ],
+		[ name: "wind-partlycloudy",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/30b.png", 	label: "Windy and Partly Cloudy" ],
+		[ name: "wind-partlycloudy!", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/30b.png", 	label: "Dangerously Windy and Partly Cloudy" ],
+		[ name: "wind-mostlycloudy",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28b.png", 	label: "Windy and Mostly Cloudy" ],
+		[ name: "wind-mostlycloudy!",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28b.png", 	label: "Dangerously Windy and Mostly Cloudy" ],
 		[ name: "breezy",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Breezy" ],
-		[ name: "breezy-overcast",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Breezy and Overcast" ],
-		[ name: "breezy-partlycloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Breezy and Partly Cloudy" ],
-		[ name: "breezy-mostlycloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Breezy and Mostly Cloudy" ],
-		[ name: "breezy-foggy", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Breezy and Foggy" ],	
-		[ name: "tornado",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/44.png",	label: "Tornado" ],
+		[ name: "breezy-overcast",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24b.png", 	label: "Breezy and Overcast" ],
+		[ name: "breezy-partlycloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/30b.png", 	label: "Breezy and Partly Cloudy" ],
+		[ name: "breezy-mostlycloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28b.png", 	label: "Breezy and Mostly Cloudy" ],
+		[ name: "breezy-foggy", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/20b.png", 	label: "Breezy and Foggy" ],	
+		[ name: "tornado",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/to.png",	label: "Tornado" ],
 		[ name: "hail",						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/18.png",	label: "Hail Storm" ],
 		[ name: "thunder-hail",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png",	label: "Thunder and Hail Storm" ],
 		[ name: "rain-hail",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/7.png",	label: "Mixed Rain and Hail" ],
 		[ name: "nt_chanceflurries", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: "Chance of Flurries" ],
 		[ name: "chancelightsnow-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png", 	label: "Possible Light Snow" ],
-		[ name: "chancelightsnowbz-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png", 	label: "Possible Light Snow and Breezy" ],
-		[ name: "chancelightsnowy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png", 	label: "Possible Light Snow and Windy" ],
+		[ name: "chancelightsnowbz-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46b.png", 	label: "Possible Light Snow and Breezy" ],
+		[ name: "chancelightsnowy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46b.png", 	label: "Possible Light Snow and Windy" ],
 		[ name: "nt_chancerain", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: "Chance of Rain" ],
 		[ name: "chancerain-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: "Chance of Rain" ],
 		[ name: "chancelightrain-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/45.png", 	label: "Chance of Light Rain" ],
@@ -2863,9 +2899,9 @@ private getImgText(weatherCode){
 		[ name: "nt_cloudy", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/26.png", 	label: "Overcast" ],
 		[ name: "cloudy-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/26.png", 	label: "Overcast" ],
 		[ name: "humid-cloudy-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/26.png", 	label: "Humid and Overcast" ],	
-		[ name: "nt_fog", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/20.png", 	label: "Foggy" ],
-		[ name: "fog-night", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/20.png", 	label: "Foggy" ],
-		[ name: "nt_hazy", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/21.png", 	label: "Hazy" ],
+		[ name: "nt_fog", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31b.png", 	label: "Foggy" ],
+		[ name: "fog-night", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31b.png", 	label: "Foggy" ],
+		[ name: "nt_hazy", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31b.png", 	label: "Hazy" ],
 		[ name: "nt_mostlycloudy", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27.png",	label: "Mostly Cloudy" ],
 		[ name: "mostly-cloudy-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27.png",	label: "Mostly Cloudy" ],
 		[ name: "humid-mostly-cloudy-night",icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27.png", 	label: "Humid and Mostly Cloudy" ],
@@ -2880,13 +2916,13 @@ private getImgText(weatherCode){
 		[ name: "lightsnow-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/14.png", 	label: "Light Snow" ],
 		[ name: "nt_rain", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: "Rain" ],
 		[ name: "rain-night", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: "Rain" ],
-		[ name: "rain-breezy-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: "Rain and Breezy" ],
-		[ name: "rain-windy-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: "Rain and Windy" ],
-		[ name: "rain-windy-night!", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: "Rain and Dangerously Windy" ],
+		[ name: "rain-breezy-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: "Rain and Breezy" ],
+		[ name: "rain-windy-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: "Rain and Windy" ],
+		[ name: "rain-windy-night!", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: "Rain and Dangerously Windy" ],
 		[ name: "heavyrain-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/12.png", 	label: "Heavy Rain" ],
-		[ name: "heavyrain-breezy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/12.png",	label: "Heavy Rain and Breezy" ],
-		[ name: "heavyrain-windy-night",	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/12.png", 	label: "Heavy Rain and Windy" ],
-		[ name: "heavyrain-windy-night!", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/12.png",	label: "Heavy Rain and Dangerously Windy" ],
+		[ name: "heavyrain-breezy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png",	label: "Heavy Rain and Breezy" ],
+		[ name: "heavyrain-windy-night",	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: "Heavy Rain and Windy" ],
+		[ name: "heavyrain-windy-night!", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png",	label: "Heavy Rain and Dangerously Windy" ],
 		[ name: "nt_drizzle", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/9.png", 	label: "Drizzle" ],
 		[ name: "drizzle-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/9.png", 	label: "Drizzle" ],
 		[ name: "nt_lightrain", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: "Light Rain" ],
@@ -2916,24 +2952,25 @@ private getImgText(weatherCode){
 		[ name: "windy-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy" ],
 		[ name: "wind-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy" ],
 		[ name: "wind-night!",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Dangerously Windy" ],
-		[ name: "wind-foggy-night",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy and Foggy" ],
-		[ name: "wind-overcast-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy and Overcast" ],
-		[ name: "wind-overcast-night!", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Dangerously Windy and Overcast" ],
-		[ name: "wind-partlycloudy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy and Partly Cloudy" ],
-		[ name: "wind-partlycloudy-night!", icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Dangerously Windy and Partly Cloudy" ],
-		[ name: "wind-mostlycloudy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy and Mostly Cloudy" ],
-		[ name: "wind-mostly-cloudy-night!",icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Dangerously Windy and Mostly Cloudy" ],
+		[ name: "wind-foggy-night",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/20b.png", 	label: "Windy and Foggy" ],
+		[ name: "wind-overcast-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24b.png", 	label: "Windy and Overcast" ],
+		[ name: "wind-overcast-night!", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24b.png", 	label: "Dangerously Windy and Overcast" ],
+		[ name: "wind-partlycloudy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/29b.png", 	label: "Windy and Partly Cloudy" ],
+		[ name: "wind-partlycloudy-night!", icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/29b.png", 	label: "Dangerously Windy and Partly Cloudy" ],
+		[ name: "wind-mostlycloudy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27b.png", 	label: "Windy and Mostly Cloudy" ],
+		[ name: "wind-mostly-cloudy-night!",icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27b.png", 	label: "Dangerously Windy and Mostly Cloudy" ],
 		[ name: "breezy-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Breezy" ],
-		[ name: "breezy-overcast-night",	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Breezy and Overcast" ],
-		[ name: "breezy-partlycloudy-night",icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Breezy and Partly Cloudy" ],
-		[ name: "breezy-mostlycloudy-night",icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Breezy and Mostly Cloudy" ],
-		[ name: "breezy-foggy-night",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Breezy and Foggy" ],
-		[ name: "nt_tornado",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/44.png",	label: "Tornado" ],
-		[ name: "tornado-night",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/44.png",	label: "Tornado" ],
-		[ name: "nt_hail",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png",	label: "Hail" ],
-		[ name: "hail-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png",	label: "Hail" ],
-		[ name: "unknown",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/na.png",	label: "Not Available" ],
-		[ name: "hurricane",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/na.png",	label: "Hurricane" ],
-		[ name: "tropical-storm",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/na.png",	label: "Tropical Storm" ]
+		[ name: "breezy-overcast-night",	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24b.png", 	label: "Breezy and Overcast" ],
+		[ name: "breezy-partlycloudy-night",icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/29b.png", 	label: "Breezy and Partly Cloudy" ],
+		[ name: "breezy-mostlycloudy-night",icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27b.png", 	label: "Breezy and Mostly Cloudy" ],
+		[ name: "breezy-foggy-night",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/20b.png", 	label: "Breezy and Foggy" ],
+		[ name: "nt_tornado",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/to.png",	label: "Tornado" ],
+		[ name: "tornado-night",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/to.png",	label: "Tornado" ],
+		[ name: "nt_hail",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46b.png",	label: "Hail" ],
+		[ name: "hail-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46b.png",	label: "Hail" ],
+		[ name: "na",						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/na.png",	label: "Not Available" ],
+        [ name: "unknown",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/na.png",	label: "Unknown" ],
+		[ name: "hurricane",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/hc.png",	label: "Hurricane" ],
+		[ name: "tropical-storm",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/38.png",	label: "Tropical Storm" ]
 	] 
 //******************************************************************************************
