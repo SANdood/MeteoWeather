@@ -56,13 +56,14 @@
 *	1.1.23 - Major overhaul of MeteoBridge template generation & handling
 *	1.1.24 - Warning message cleanup, expanded "windy/breezy and ..." icons
 *	1.1.25 - Added preferences option to use averaged data pver the last update frequency period
+*	1.1.26 - Cosmetic additional debug traces
 *
 */
 import groovy.json.*
 import java.text.SimpleDateFormat
 import groovy.transform.Field
 
-private getVersionNum() { return "1.1.25" }
+private getVersionNum() { return "1.1.26" }
 private getVersionLabel() { return "Meteobridge Weather Station, version ${versionNum}" }
 private getDebug() { false }
 private getFahrenheit() { true }		// Set to false for Celsius color scale
@@ -280,6 +281,7 @@ metadata {
  		input "meteoPort", "string", title:"Meteobridge Port", description: "Enter your Meteobridge's Port", defaultValue: 80 , required: true, displayDuringSetup: true
     	input "meteoUser", "string", title:"Meteobridge User", description: "Enter your Meteobridge's username", required: true, defaultValue: 'meteobridge', displayDuringSetup: true
     	input "meteoPassword", "password", title:"Meteobridge Password", description: "Enter your Meteobridge's password", required: true, displayDuringSetup: true
+		// input "shortStats", "bool", title:"Use optimized MeteoBridge requests?", required: true, defaultValue: false, displayDuringSetup: true
         
         input ("purpleID", "string", title: 'Purple Air Sensor ID (optional)', description: 'Enter your PurpleAir Sensor ID', required: false, displayDuringSetup: true)
 
@@ -818,6 +820,7 @@ def updated() {
 def initialize() {
 	log.trace getVersionLabel() + " on ${state.hubPlatform} Initializing..."
     def poweredBy = "MeteoBridge"
+	if (shortStats) log.trace "Using optimized MeteoBridge template"
     def endBy = ''
     state.respTotal = 0
     state.respCount = 0
@@ -882,6 +885,7 @@ def initialize() {
         send(name: 'twcConditions', value: null, displayed: false)
     	send(name: 'twcForecast', value: null, displayed: false)
         send(name: 'wundergroundObs', value: null, displayed: false)
+		log.debug "Using DarkSky"
         getDarkSkyWeather()
     } 
     if (purpleID) {
@@ -956,7 +960,8 @@ def getMeteoWeather( yesterday = false) {
         )
     }
     if (debug) send(name: 'hubAction', value: hubAction, displayed: false, isStateChange: true)
-    if (debug) log.debug "hubAction size: ${hubAction.toString().size()}"
+	if (debug) log.debug "hubAction (${hubAction.toString().size()}): ${hubAction.toString()}"
+
         
     try {
     	state.callStart = yesterday ? null : now()
@@ -1261,7 +1266,7 @@ def updateWeatherTiles() {
 				send(name: "solarRadiation", value: sr, unit: 'W/m²', descriptionText: "Solar radiation is ${val} W/m²")
                 state.MTsolarPwr = sr
             } else {
-            	send(name: "solarRadiation", value: null, displayed: false)
+            	send(name: "solarRadiation", value: "", displayed: false)
                 state.MTsolarPwr = null
             }
         
@@ -2673,7 +2678,7 @@ def getCurrentTemplate() {
                 "[sol${d}rad-${a}:\"\"],[mbsystem-lunarage:\"\"],[mbsystem-lunarpercent:\"\"],[mbsystem-lunarsegment:\"\"]," +
                 '"[mbsystem-moonrise:]","[mbsystem-moonset:]",[mbsystem-isday=.0:""]]}'
                             
-    } else {
+    } else {	
         return "\"current\":{\"date\":\"[M]/[D]/[YY]\",\"time\":\"[H]:[mm]:[ss] [apm]\",\"humOut\":[th${d}hum-${a}=.2:\"\"],\"humIn\":[thb${d}hum-${a}=.2:\"\"]," + 
         		temperatureTemplate + currentRainfall + pressureTemplate + windTemplate +
                 "\"dayHours\":\"[mbsystem-daylength:]\",\"highHum\":[th${d}hum-dmax=.2:\"\"],\"lowHum\":[th${d}hum-dmin=.2:\"\"]," +
