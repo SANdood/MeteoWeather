@@ -57,19 +57,20 @@
 *	1.1.24 - Warning message cleanup, expanded "windy/breezy and ..." icons
 *	1.1.25 - Added preferences option to use averaged data pver the last update frequency period
 *	1.1.26 - Cosmetic additional debug traces
+*	1.1.27 - Fixed timestamp/timeGet, reduced chars in myTile
 *
 */
 import groovy.json.*
 import java.text.SimpleDateFormat
 import groovy.transform.Field
 
-private getVersionNum() { return "1.1.26" }
+private getVersionNum() { return "1.1.27" }
 private getVersionLabel() { return "Meteobridge Weather Station, version ${versionNum}" }
 private getDebug() { false }
 private getFahrenheit() { true }		// Set to false for Celsius color scale
 private getCelsius() { !fahrenheit }
 private getSummaryText() { true }
-private getShortStats() { true }
+private getShortStats() { false }
 
 // **************************************************************************************************************************
 // SmartThings/Hubitat Portability Library (SHPL)
@@ -281,7 +282,7 @@ metadata {
  		input "meteoPort", "string", title:"Meteobridge Port", description: "Enter your Meteobridge's Port", defaultValue: 80 , required: true, displayDuringSetup: true
     	input "meteoUser", "string", title:"Meteobridge User", description: "Enter your Meteobridge's username", required: true, defaultValue: 'meteobridge', displayDuringSetup: true
     	input "meteoPassword", "password", title:"Meteobridge Password", description: "Enter your Meteobridge's password", required: true, displayDuringSetup: true
-		// input "shortStats", "bool", title:"Use optimized MeteoBridge requests?", required: true, defaultValue: false, displayDuringSetup: true
+		input "shortStats", "bool", title:"Use optimized MeteoBridge requests?", required: true, defaultValue: false, displayDuringSetup: true
         
         input ("purpleID", "string", title: 'Purple Air Sensor ID (optional)', description: 'Enter your PurpleAir Sensor ID', required: false, displayDuringSetup: true)
 
@@ -954,7 +955,7 @@ def getMeteoWeather( yesterday = false) {
             method: 'GET',
             path: '/cgi-bin/template.cgi',
             headers: [ HOST: "${settings.meteoIP}:${settings.meteoPort}", 'Authorization': state.userpass ],
-            query: ['template': "{\"timeGet\":${now()}," + MBSystemTemplate + (yesterday ? yesterdayTemplate : state.meteoTemplate), 'contenttype': 'text/json' ],
+            query: ['template': "{\"timeGet\":${now()}," + MBSystemTemplate + (yesterday ? yesterdayTemplate : state.meteoTemplate), 'contenttype': 'application/json' ],
             null,
             [callback: meteoWeatherCallback]
         )
@@ -962,6 +963,7 @@ def getMeteoWeather( yesterday = false) {
     if (debug) send(name: 'hubAction', value: hubAction, displayed: false, isStateChange: true)
 	if (debug) log.debug "hubAction (${hubAction.toString().size()}): ${hubAction.toString()}"
 
+	// log.debug "query (raw): ${hubAction}"
         
     try {
     	state.callStart = yesterday ? null : now()
@@ -1103,7 +1105,9 @@ def updateWeatherTiles() {
         	if ((val != null) && (val == "")) val = null
             if ((val != null) && (val != device.currentValue('isDay'))) {
             	if (debug) "updateWeatherTiles() - updating day/night"
-                updateTwcTiles()
+				if (fcstSource) {
+					if (state.twcForTomorrow || (fcstSource == 'twc')) updateTwcTiles()
+				}
                 if (val == 1) {
                 	send(name: 'isDay', value: 1, displayed: true, descriptionText: 'Daybreak (civil sunrise)' )
                 	send(name: 'isNight', value: 0, displayed: true, descriptionText: 'Dawn begins' )
@@ -1604,7 +1608,7 @@ def updateWeatherTiles() {
                 nowText = '~' + new Date(state.meteoWeather.timeGet).format("h:mm:ss a '\non' M/d/yyyy", location.timeZone).toLowerCase()
             }
             if (nowText != null) sendEvent(name:"lastSTupdate", value: nowText, descriptionText: "Last updated at ${nowText}", displayed: false)
-            sendEvent(name:"timestamp", value: state.meteoWeather.timestamp, displayed: false)
+            sendEvent(name:"timestamp", value: state.meteoWeather.timeGet, displayed: false)
 
             // Check if it's time to get yesterday's data
             if (debug) log.debug "Current date from MeteoBridge is: ${date}"
@@ -2177,14 +2181,14 @@ private makeMyTile() {
 	String pv = (pres_units && (pres_units == 'press_in')) ? 'inHg' : 'mmHg'
     def iconClose = "?raw=true"
     if (debug) log.debug "state.MTwindBftIcon: ${state.MTwindBftIcon}, state.MTwindBft: (${state.MTwindBft})"
-    def mytext = '<div style=\"text-align:center;display:inline;margin-top:0em;margin-bottom:0em;\">' + "${state.MTlocation}" +
+    def mytext = '<div style=text-align:center;display:inline;margin:0px;>' + "${state.MTlocation}" +
                     // "${alertStyleOpen}" + "${condition_text}" + "${alertStyleClose}" + '<br>' +
                     ( ((state.MTcity!=null)&&(state.MTcity!="")) ? ( ' - ' + state.MTcity + ', ' + state.MTstate + '<br>') : '<br>' ) +
-                    "</div><br>${state.MTtemperature}&deg;${unit}" + '<img style=\"height:2.0em\" src=' + "${getImgIcon(state.MTicon)}" + '>' + 
+                    "</div><br>${state.MTtemperature}&deg;${unit}" + '<img style=height:2.0em src=' + "${getImgIcon(state.MTicon)}" + '>' + 
                         ( (state.MTweather&&(state.MTweather!="")) ? ('&nbsp; ' + state.MTweather + '<br>') : '<br>' ) +
-                    '<span style=\"font-size:.75em;\">' +
+                    '<span style=font-size:.75em;>' +
                         ( (((state.MTfeelsLike!=null)&&(state.MTfeelsLike!=""))&&(state.MTfeelsLike!=state.MTtemperature)) ? ('Feels like ' + "${state.MTfeelsLike}&deg;${unit}") : '&nbsp;' ) + '<br><br></span>' +
-                    '<div style=\"font-size:.90em;line-height=100%;\">' +
+                    '<div style=font-size:.90em;line-height=100%;>' +
                         ( ((state.MTwindBft!=null)&&(state.MTwindBft!="")) ? ('<img src=' + state.iconStore + state.MTwindBftIcon + iconClose + "> ${state.MTwindBftText.capitalize()}${(state.MTwindBft != 0) ? (' from the ' + state.MTwindDir) : ''}<br>") : '') +
                     ( ((state.MTwindBft!=null)&&(state.MTwindBft!=0)) ? "at ${state.MTwind} ${s}, gusting to ${state.MTgust} ${s}<br><br>" : '<br>') +
                     ( ((state.MTpressure!=null)&&(state.MTpressure!="")) ? ('<img src=' + state.iconStore + "wb.png${iconClose}>" + "${state.MTpressure} ${pv} ${state.MTpressTrend}  ") : '') + 
