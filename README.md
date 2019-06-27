@@ -1,4 +1,4 @@
-## ***Meteobridge Weather Station v1.1.25 released on May 22, 2019***
+## ***Meteobridge Weather Station v1.1.28 released on June 26 22, 2019***
 
 ### Overview
 Meteobridge (www.meteobridge.com) is an inexpensive Linux-based server that is used by many to collect data from your local weather station and distribute it to one or more public weather sources (including Weather Underground, for example). It supports data collection from a large number of popular weather stations, and it offers a local API that allows clients/applications to retrieve the latest weather station data on demand.
