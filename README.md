@@ -18,11 +18,22 @@ Significantly, EVERYTHING that this DTH displays in Tiles is also available prog
 ### Hubitat Compatibility
 Thanks to the assistance of @staze and the Hubitat Community plus some code borrowed from Echo Speaks (thanks @tonesto7) this DTH can be used on Hubitat *without modification!* It will auto-detect the hub platform, and adjust its calls, classes and parameters appropriately for each platform. There are lots of incompatibilities between the two platforms, but clever utilization of Groovy allows a single code base to support both. Of course, on Hubitat there is no UI, but all of the attributes are programmatically available to apps and Rules Engine on that platform.
 
+#### New in version 1.1.28
+MeteoWeather now fully supports the native Hubitat Dashboard Weather Tile. Assigning this device to the Weather Tile will result in this:
+
+<img src="https://raw.githubusercontent.com/SANdood/Icons/master/Weather/DashboardWeatherTile.PNG" border="1">
+
+MeteoWeather also generates an HTML weather snapshot, designed for use with the HE Dashboard. To access it, create a 2x2 tile in the Dashboard, first select your MeteoWeather device. Then select the "Attribute" template, and assign it to the "myTile" attribute. The resulting display looks like this:
+
+<img src="https://raw.githubusercontent.com/SANdood/Icons/master/Weather/DashboardMyTile.PNG" border="1">
+
+Note that the above display *just barely* fits within the 1024 character size limitation of the "myTile" attribute.
+
 ### Important Note for All Users
 Since this DTH uses `hubAction()` for the MeteoBridge data, it will work only when your SmartThings/Hubitat hub and your MeteoBridge/WeatherBridge server are on the same (local) IP network. This approach keeps your password safe(r), but doesn't handle remote IP addresses. On the plus side, it is pretty lightweight to get updates from your meteobridge every minute, unlike using the WeatherUnderground data source.
 
 
-The GiThub repository for MeteoWeather is here: 
+The GitHub repository for MeteoWeather is here: 
 https://github.com/SANdood/MeteoWeather 
 
 ### Installation
