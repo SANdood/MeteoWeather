@@ -58,19 +58,20 @@
 *	1.1.25 - Added preferences option to use averaged data pver the last update frequency period
 *	1.1.26 - Cosmetic additional debug traces
 *	1.1.27 - Fixed timestamp/timeGet, reduced chars in myTile
+*	1.1.28 - Added wind speed & OWM weather icons for small HE Dashboard tile, fixed day/night transition icons
 *
 */
 import groovy.json.*
 import java.text.SimpleDateFormat
 import groovy.transform.Field
 
-private getVersionNum() { return "1.1.27" }
+private getVersionNum() { return "1.1.28" }
 private getVersionLabel() { return "Meteobridge Weather Station, version ${versionNum}" }
 private getDebug() { false }
 private getFahrenheit() { true }		// Set to false for Celsius color scale
 private getCelsius() { !fahrenheit }
 private getSummaryText() { true }
-private getShortStats() { false }
+// private getShortStats() { true }
 
 // **************************************************************************************************************************
 // SmartThings/Hubitat Portability Library (SHPL)
@@ -118,154 +119,143 @@ metadata {
         capability "Relative Humidity Measurement"
         capability "Ultraviolet Index"
         capability "Illuminance Measurement"
-		if (isST) {capability "Air Quality Sensor"} else {attribute "airQuality", "number"}
+		if (isST) capability "Air Quality Sensor"
 		capability "Water Sensor"
         capability "Sensor"
         capability "Refresh"
 
-        attribute "heatIndex", "number"
-        if (debug) attribute "heatIndexDisplay", "string"
-        attribute "uvIndex", "number"				// Also 'ultravioletIndex' per ST capabilities 07/19/2018
-        attribute "dewpoint", "number"
-        attribute "pressure", "number"
-        if (debug) attribute "pressureDisplay", "string"
-        attribute "pressureTrend", "string"
-        attribute "solarRadiation", "number"
-        attribute "evapotranspiration", "number"
-        if (debug) attribute "etDisplay", "string"
-        
-        attribute "indoorTemperature", "number"
-        attribute "indoorHumidity", "number"
-        attribute "indoorDewpoint", "number"
-        
-        attribute "highTempYesterday", "number"
-        attribute "lowTempYesterday", "number"
-        attribute "highTemp", "number"
-        attribute "lowTemp", "number"
-        attribute "highTempForecast", "number"
-        attribute "lowTempForecast", "number"
-        attribute "highTempTomorrow", "number"
-        attribute "lowTempTomorrow", "number"
-        
-		attribute "highHumYesterday", "number"
-        attribute "lowHumYesterday", "number"
-        attribute "highHumidity", "number"
-        attribute "lowHumidity", "number"
-        attribute "avgHumForecast", "number"
-        attribute "avgHumTomorrow", "number"
-
-        attribute "precipYesterday", "number"
-        if (debug) attribute "precipYesterdayDisplay", "string"
-        attribute "precipToday", "number"
-        if (debug) attribute "precipTodayDisplay", "string"
-        attribute "precipForecast", "number"
-        if (debug) attribute "precipFcstDisplay", "string"
-        attribute "precipLastHour", "number"
-        if (debug) attribute "precipLastHourDisplay", "string"
-        attribute "precipRate", "number"
-        if (debug) attribute "precipRateDisplay", "string"
-        attribute "precipTomorrow", "number"
-        if (debug) attribute "precipTomDisplay", "string"
-        attribute "pop", "number"					// Probability of Precipitation (in %)
-        if (debug) attribute "popDisplay", "string"
-        attribute "popForecast", "number"
-        if (debug) attribute "popFcstDisplay", "string"
-        attribute "popTomorrow", "number"
-        if (debug) attribute "popTomDisplay", "string"
-        attribute "water", "string"
-
-		attribute "weather", "string"
-        attribute "weatherIcon", "string"
-        attribute "forecast", "string"
-        attribute "forecastCode", "string"
-        
-        attribute "airQualityIndex", "number"
-		// attribute "airQuality", "number"
-        attribute "aqi", "number"
-        attribute "wind", "number"
-        attribute "windDirection", "string"
-        attribute "windGust", "number"
-        attribute "windChill", "number"
-        if (debug) attribute "windChillDisplay", "string"
-        attribute "windDirectionDegrees", "number"
-        if (debug) attribute "windinfo", "string"        
-
-        attribute "sunrise", "string"
-        attribute "sunriseAPM", "string"
-        attribute "sunriseEpoch", "number"
-        attribute "sunset", "string"
-        attribute "sunsetAPM", "string"
-        attribute "sunsetEpoch", "number"
-        attribute "dayHours", "string"
-        attribute "dayMinutes", "number"
-        attribute "isDay", "number"
-        attribute "isNight", "number"
-        
-        attribute "moonrise", "string"
-        attribute "moonriseAPM", "string"
-        attribute "moonriseEpoch", "number"
-        attribute "moonset", "string"
-        attribute "moonsetAPM", "string"
-        attribute "moonsetEpoch", "number"
-        attribute "lunarSegment", "number"
-        attribute "lunarAge", "number"
-        attribute "lunarPercent", "number"
-        attribute "moonPhase", "string"
-        if (debug) attribute "moonPercent", "number"
-        if (debug) attribute "moonDisplay", "string"
-        if (debug) attribute "moonInfo", "string"
-        
-        attribute "locationName", "string"
-        attribute "currentDate", "string"
-        attribute "currentTime", "string"
-  		attribute "lastSTupdate", "string"
-        attribute "timestamp", "string"
-		attribute "timezone", "string"
-        attribute "attribution", "string"
-        
-        if (debug) {
-        	attribute "meteoTemplate", "string"			// For debugging only
-        	attribute "purpleAir", "string"				// For debugging only
-        	attribute "meteoWeather", "string"			// For debugging only
-        	attribute "iconErr", "string"				// For debugging only
-        	attribute "wundergroundObs", "string"		// For debugging only
-        	attribute "darkSkyWeather", "string"		// For debugging only
-            attribute "twcConditions", "string"			// For debugging only
-            attribute "twcForecast", "string"			// For debugging only
-            attribute "hubAction", "string"				// For debugging only
-        }
-        
-        if (summaryText) attribute "summaryList", "string"
-        if (summaryText) attribute "summaryMap", "string"
-        
-		// Hubitat Dashboard / Tiles info
+		if (isHE) attribute "airQuality", "number"
+		attribute "airQualityIndex", "number"
+		attribute "aqi", "number"
+		attribute "attribution", "string"
+		attribute "avgHumForecast", "number"
+		attribute "avgHumTomorrow", "number"
 		attribute "city", "string"
-        attribute "state", "string"
-        attribute "country", "string"
-        attribute "location", "string"
-        attribute "latitude", "number"
-        attribute "longitude", "number"
-        attribute "tz_id", "string"
-        attribute "last_poll_Station", "string"
-        attribute "last_poll_Forecast", "string"
-        attribute "last_observation_Station", "string"
-        attribute "last_observation_Forecast", "string"
-        attribute "localSunset", "string"
-        attribute "localSunrise", "string"
+		attribute "country", "string"
+		attribute "currentDate", "string"
+		attribute "currentTime", "string"
+		if (debug) attribute "darkSkyWeather", "string"			// For debugging only
+		attribute "dayHours", "string"
+		attribute "dayMinutes", "number"
+		attribute "dewpoint", "number"
+		if (debug) attribute "etDisplay", "string"
+		attribute "evapotranspiration", "number"
+		attribute "forecast", "string"
+		attribute "forecastCode", "string"
+		attribute "heatIndex", "number"
+		if (debug) attribute "heatIndexDisplay", "string"
+		attribute "highHumYesterday", "number"
+		attribute "highHumidity", "number"
+		attribute "highTemp", "number"
+		attribute "highTempForecast", "number"
+		attribute "highTempTomorrow", "number"
+		attribute "highTempYesterday", "number"
+		if (debug) attribute "hubAction", "string"				// For debugging only
+		if (debug) attribute "iconErr", "string"				// For debugging only
+		attribute "indoorDewpoint", "number"
+		attribute "indoorHumidity", "number"
+		attribute "indoorTemperature", "number"
+		attribute "isDay", "number"
+		attribute "isNight", "number"
+		attribute "lastSTupdate", "string"
+		attribute "last_observation_Forecast", "string"
+		attribute "last_observation_Station", "string"
+		attribute "last_poll_Forecast", "string"
+		attribute "last_poll_Station", "string"
+		attribute "latitude", "number"
+		attribute "localMoonrise", "string"
 		attribute "localMoonset", "string"
-        attribute "localMoonrise", "string"
+		attribute "localSunrise", "string"
+		attribute "localSunset", "string"
+		attribute "location", "string"
+		attribute "locationName", "string"
+		attribute "longitude", "number"
+		attribute "lowHumYesterday", "number"
+		attribute "lowHumidity", "number"
+		attribute "lowTemp", "number"
+		attribute "lowTempForecast", "number"
+		attribute "lowTempTomorrow", "number"
+		attribute "lowTempYesterday", "number"
+		attribute "lunarAge", "number"
+		attribute "lunarPercent", "number"
+		attribute "lunarSegment", "number"
+		if (debug) attribute "meteoTemplate", "string"			// For debugging only
+		if (debug) attribute "meteoWeather", "string"			// For debugging only
 		attribute "moonAge", "number"
+		if (debug) attribute "moonDisplay", "string"
 		attribute "moonIllumination", "number"
-		attribute "wind_gust", "number"
-		attribute "wind_degree", "number"
-        attribute "wind_dir", "string"
-		attribute "wind_direction", "string"
-        attribute "wind_string", "string"
+		if (debug) attribute "moonInfo", "string"
+		attribute "moonPhase", "string"
+		if (debug) attribute "moonPercent", "number"
+		attribute "moonrise", "string"
+		attribute "moonriseAPM", "string"
+		attribute "moonriseEpoch", "number"
+		attribute "moonset", "string"
+		attribute "moonsetAPM", "string"
+		attribute "moonsetEpoch", "number"
 		attribute "myTile", "string"
-        attribute "respTime", "number"
+		attribute "pop", "number"					// Probability of Precipitation (in %)
+		if (debug) attribute "popDisplay", "string"
+		if (debug) attribute "popFcstDisplay", "string"
+		attribute "popForecast", "number"
+		if (debug) attribute "popTomDisplay", "string"
+		attribute "popTomorrow", "number"
+		if (debug) attribute "precipFcstDisplay", "string"
+		attribute "precipForecast", "number"
+		if (debug) attribute "precipLastHourDisplay", "string"
+		attribute "precipLastHour", "number"
+		attribute "precipRate", "number"
+		if (debug) attribute "precipRateDisplay", "string"
+		attribute "precipToday", "number"
+		if (debug) attribute "precipTodayDisplay", "string"
+		if (debug) attribute "precipTomDisplay", "string"
+		attribute "precipTomorrow", "number"
+		attribute "precipYesterday", "number"
+		if (debug) attribute "precipYesterdayDisplay", "string"
+		attribute "pressure", "number"
+		if (debug) attribute "pressureDisplay", "string"
+		attribute "pressureTrend", "string"
+		if (debug) attribute "purpleAir", "string"				// For debugging only
 		attribute "respAvg", "number"
+		attribute "respTime", "number"
+		attribute "solarRadiation", "number"
+		attribute "state", "string"
+		if (summaryText) attribute "summaryList", "string"
+		if (summaryText) attribute "summaryMap", "string"
+		attribute "sunrise", "string"
+		attribute "sunriseAPM", "string"
+		attribute "sunriseEpoch", "number"
+		attribute "sunset", "string"
+		attribute "sunsetAPM", "string"
+		attribute "sunsetEpoch", "number"
+		attribute "timestamp", "string"
+		attribute "timezone", "string"
+		if (debug) attribute "twcConditions", "string"			// For debugging only
+		if (debug) attribute "twcForecast", "string"			// For debugging only
+		attribute "tz_id", "string"
+		attribute "uvIndex", "number"				// Also 'ultravioletIndex' per ST capabilities 07/19/2018
+		attribute "water", "string"
+		attribute "weather", "string"
+		attribute "weatherIcon", "string"
+		attribute "weatherIcons", "string"		// OpenWeatherMap icon
+		attribute "wind", "number"
+		attribute "windChill", "number"
+		if (debug) attribute "windChillDisplay", "string"
+		attribute "windDirection", "string"
+		attribute "windDirectionText", "string"
+		if (debug) attribute "windinfo", "string"
+		attribute "windGust", "number"
+		attribute "windSpeed", "number"
+		attribute "wind_degree", "string"
+		attribute "wind_dir", "string"
+		attribute "wind_direction", "string"
+		attribute "wind_gust", "number"
+		attribute "wind_speed", "number"
+		attribute "wind_string", "string"
+		attribute "wundergroundObs", "string"		// For debugging only
+		attribute 'feelsLike', 'number'
 		
-		command "refresh"
+		command "refresh", []
 		// command "getWeatherReport"
     }
 
@@ -821,7 +811,7 @@ def updated() {
 def initialize() {
 	log.trace getVersionLabel() + " on ${state.hubPlatform} Initializing..."
     def poweredBy = "MeteoBridge"
-	if (shortStats) log.trace "Using optimized MeteoBridge template"
+	if (settings.shortStats) log.trace "Using optimized MeteoBridge template"
     def endBy = ''
     state.respTotal = 0
     state.respCount = 0
@@ -1051,6 +1041,9 @@ def updateWeatherTiles() {
 		state.MTicon = device.currentValue('weatherIcon')
 		state.MTweather = device.currentValue('weather')
 		
+		// This is the OpenWeatehrMap icon - used by HE Dashboard weather tile
+		send(name: "weatherIcons", value: getOwmIcon(state.MTicon), displayed: false)
+			 
 	// Forecast Data
         if (!fcstSource || (fcstSource == 'meteo')) {
         	if (debug) "updateWeatherTiles() - updating meteo forecast()"
@@ -1066,29 +1059,29 @@ def updateWeatherTiles() {
     // Yesterday data
         if (state.meteoWeather?.yesterday) {
         	if (debug) "updateWeatherTiles() - handling yesterday's data"
-            if (debug && shortStats) log.debug "state.meteoWeather.yesterday: ${state.meteoWeather.yesterday}"
+            if (debug && settings.shortStats) log.debug "state.meteoWeather.yesterday: ${state.meteoWeather.yesterday}"
             
-            val = shortStats ? state.meteoWeather.yesterday[0] : state.meteoWeather.yesterday.highTemp
+            val = settings.shortStats ? state.meteoWeather.yesterday[0] : state.meteoWeather.yesterday.highTemp
             if ((val != null) && (val == "")) val = null
         	t = roundIt(val, ud)
         	send(name: 'highTempYesterday', value: t, unit: unit, descriptionText: "High Temperature yesterday was ${t}°${unit}")
             
-            val = shortStats ? state.meteoWeather.yesterday[1] : state.meteoWeather.yesterday.lowTemp
+            val = settings.shortStats ? state.meteoWeather.yesterday[1] : state.meteoWeather.yesterday.lowTemp
             if ((val != null) && (val == "")) val = null
         	t = roundIt(val, ud)
             send(name: 'lowTempYesterday', value: t, unit: unit, descriptionText: "Low Temperature yesterday was ${t}°${unit}")
             
-            val = shortStats ? state.meteoWeather.yesterday[2] : state.meteoWeather.yesterday.highHum
+            val = settings.shortStats ? state.meteoWeather.yesterday[2] : state.meteoWeather.yesterday.highHum
             if ((val != null) && (val == "")) val = null
         	hum = roundIt(val, 0)
             send(name: 'highHumYesterday', value: hum, unit: "%", descriptionText: "High Humidity yesterday was ${hum}%")
             
-            val = shortStats ? state.meteoWeather.yesterday[3] : state.meteoWeather.yesterday.lowHum
+            val = settings.shortStats ? state.meteoWeather.yesterday[3] : state.meteoWeather.yesterday.lowHum
             if ((val != null) && (val == "")) val = null
         	hum = roundIt(val, 0)
             send(name: 'lowHumYesterday', value: hum, unit: "%", descriptionText: "Low Humidity yesterday was ${hum}%")
             
-            def ry = shortStats ? state.meteoWeather.yesterday[4] : state.meteoWeather.yesterday.rainfall
+            def ry = settings.shortStats ? state.meteoWeather.yesterday[4] : state.meteoWeather.yesterday.rainfall
             if ((ry != null) && (ry == "")) ry = null
             def ryd = roundIt(ry, hd + 1)		// Internally keep 1 more digit of precision than we display
             def rydd = roundIt(ry, hd)
@@ -1101,7 +1094,7 @@ def updateWeatherTiles() {
     // Today data
 		if (state.meteoWeather?.current) { 
         	if (debug) log.debug "updateWeatherTiles() - handling today's data"
-            val = shortStats ? state.meteoWeather.current[36] : state.meteoWeather.current.isDay
+            val = settings.shortStats ? state.meteoWeather.current[36] : state.meteoWeather.current.isDay
         	if ((val != null) && (val == "")) val = null
             if ((val != null) && (val != device.currentValue('isDay'))) {
             	if (debug) "updateWeatherTiles() - updating day/night"
@@ -1120,30 +1113,30 @@ def updateWeatherTiles() {
         // Temperatures
         	def theTemp = null
             state.MTfeelsLike = ""
-            val = shortStats ? state.meteoWeather.current[4] : state.meteoWeather.current.tempOut
+            val = settings.shortStats ? state.meteoWeather.current[4] : state.meteoWeather.current.tempOut
             if ((val != null) && (val == "")) val = null
             if (val != null) {
             	if (debug) log.debug "updateWeatherTiles() - updating temperatures"
             // Outdoor temp
                 theTemp = val
-                td = roundIt(val, 2)
+                td = roundIt(val, ud+1)
                 send(name: "temperature", value: td, unit: unit, descriptionText: "Temperature is ${td}°${unit}")
                 state.MTtemperature = roundIt(val, 1)
                 if (state.isST) {
                     send(name: "temperatureDisplay", value: td.toString(), unit: unit, displayed: false, descriptionText: "Temperature display is ${td}°${unit}")
                 }
             // High temp so far today
-                val = shortStats ? state.meteoWeather.current[10] : state.meteoWeather.current.highTemp
+                val = settings.shortStats ? state.meteoWeather.current[10] : state.meteoWeather.current.highTemp
             	if ((val != null) && (val == "")) val = null
                 t = roundIt(val, ud)
                 send(name: "highTemp", value: t, unit: unit, descriptionText: "High Temperature so far today is ${t}°${unit}")
             // Low temp so far today
-                val = shortStats ? state.meteoWeather.current[11] : state.meteoWeather.current.lowTemp
+                val = settings.shortStats ? state.meteoWeather.current[11] : state.meteoWeather.current.lowTemp
             	if ((val != null) && (val == "")) val = null
                 t = roundIt(val, ud)
                 send(name: "lowTemp", value: t , unit: unit, descriptionText: "Low Temperature so far today is ${t}°${unit}")
             // Heat Index
-                val = shortStats ? state.meteoWeather.current[6] : state.meteoWeather.current.heatIndex
+                val = settings.shortStats ? state.meteoWeather.current[6] : state.meteoWeather.current.heatIndex
             	if ((val != null) && (val == "")) val = null
                 t = roundIt(val, ud+1)
                 if ((t != null) && (theTemp != val)) {
@@ -1157,23 +1150,23 @@ def updateWeatherTiles() {
                 	send(name: 'heatIndex', value: null, unit: unit, displayed: false)
                 }
             // Indoor Temp
-                val = shortStats ? state.meteoWeather.current[8] : state.meteoWeather.current.tempIn
+                val = settings.shortStats ? state.meteoWeather.current[8] : state.meteoWeather.current.tempIn
             	if ((val != null) && (val == "")) val = null
                 td = roundIt(val, 2)
                 send(name: "indoorTemperature", value: td, unit: unit, descriptionText: "Indoor Temperature is ${td}°${unit}")
 			// Outdoor Dewpoint
-            	val = shortStats ? state.meteoWeather.current[5] : state.meteoWeather.current.dewOut
+            	val = settings.shortStats ? state.meteoWeather.current[5] : state.meteoWeather.current.dewOut
             	if ((val != null) && (val == "")) val = null
                 // if (val == null) val = calculateDewpoint()
                 t = roundIt(val, ud+1)
                 send(name: "dewpoint", value: t , unit: unit, descriptionText: "Dew Point is ${t}°${unit}")
             // Indoor Dewpoint
-            	val = shortStats ? state.meteoWeather.current[9] : state.meteoWeather.current.dewIn
+            	val = settings.shortStats ? state.meteoWeather.current[9] : state.meteoWeather.current.dewIn
             	if ((val != null) && (val == "")) val = null
                 t = roundIt(val, 2)
                 send(name: "indoorDewpoint", value: t, unit: unit, descriptionText: "Indoor Dewpoint is ${t}°${unit}")
             // Wind Chill
-            	val = shortStats ? state.meteoWeather.current[7] : state.meteoWeather.current.windChill
+            	val = settings.shortStats ? state.meteoWeather.current[7] : state.meteoWeather.current.windChill
             	if ((val != null) && (val == "")) val = null
                 t = roundIt(val, ud+1)
                 if (t != null) {
@@ -1197,7 +1190,7 @@ def updateWeatherTiles() {
             }
 			
         // Humidity
-        	val = shortStats ? state.meteoWeather.current[2] : state.meteoWeather.current.humOut
+        	val = settings.shortStats ? state.meteoWeather.current[2] : state.meteoWeather.current.humOut
             if ((val != null) && (val == "")) val = null
             if (val != null) {
                 hum = roundIt(val, ud)
@@ -1205,11 +1198,11 @@ def updateWeatherTiles() {
                 if (isStateChange(device, 'humidity', hum as String)) {
                     if (debug) log.debug "updateWeatherTiles() - updating humidity"
                     send(name: "humidity", value: hum, unit: "%", descriptionText: "Humidity is ${hum}%", isStateChange: true)
-                    val = shortStats ? state.meteoWeather.current[24] : state.meteoWeather.current.highHum
+                    val = settings.shortStats ? state.meteoWeather.current[24] : state.meteoWeather.current.highHum
             		if ((val != null) && (val == "")) val = null
                     hum = roundIt(val, 0)
                     send(name: "highHumidity", value: hum, unit: "%", descriptionText: "High Humidity so far today is ${hum}%")
-                    val = shortStats ? state.meteoWeather.current[25] : state.meteoWeather.current.lowHum
+                    val = settings.shortStats ? state.meteoWeather.current[25] : state.meteoWeather.current.lowHum
             		if ((val != null) && (val == "")) val = null
                     hum = roundIt(val, 0)
                     send(name: "lowHumidity", value: hum, unit: "%", descriptionText: "Low Humidity so far today is ${hum}%")                
@@ -1221,13 +1214,13 @@ def updateWeatherTiles() {
                 state.MThumidity = null
             }
         // Indoor Humidity
-            val = shortStats ? state.meteoWeather.current[3] : state.meteoWeather.current.humIn
+            val = settings.shortStats ? state.meteoWeather.current[3] : state.meteoWeather.current.humIn
             if ((val != null) && (val == "")) val = null
 			hum = roundIt(val, 0)
         	send(name: "indoorHumidity", value: hum, unit: "%", descriptionText: "Indoor Humidity is ${hum}%")
             
         // Ultraviolet Index
-        	val = shortStats ? state.meteoWeather.current[29] : state.meteoWeather.current.uvIndex
+        	val = settings.shortStats ? state.meteoWeather.current[29] : state.meteoWeather.current.uvIndex
             if ((val != null) && (val == "")) val = null
             if (val != null) {
             	if (debug) log.debug "updateWeatherTiles() - updating UV Index from MeteoBridge"
@@ -1262,7 +1255,7 @@ def updateWeatherTiles() {
             }           
            
         // Solar Radiation
-        	val = shortStats ? state.meteoWeather.current[30] : state.meteoWeather.current.solRad
+        	val = settings.shortStats ? state.meteoWeather.current[30] : state.meteoWeather.current.solRad
             if ((val != null) && (val == "")) val = null
             if (val != null) {
             	if (debug) log.debug "updateWeatherTiles() - updating solarRadiation"
@@ -1275,13 +1268,13 @@ def updateWeatherTiles() {
             }
         
 		// Barometric Pressure  
-        	val = shortStats ? state.meteoWeather.current[16] : state.meteoWeather.current.pressure
+        	val = settings.shortStats ? state.meteoWeather.current[16] : state.meteoWeather.current.pressure
             if ((val != null) && (val == "")) val = null
             if (val != null) {
             	pr = roundIt(val, 2)
             	if (debug) log.debug "updateWeatherTiles() - updating barometric pressure()"
                 def pressure_trend_text
-                val = shortStats ? state.meteoWeather.current[17] : state.meteoWeather.current.pTrend
+                val = settings.shortStats ? state.meteoWeather.current[17] : state.meteoWeather.current.pTrend
             	if ((val != null) && (val == "")) val = null
                 if ((pr != state.MTpressure) || (val != device.currentValue('pressureTrend'))) { 
                     state.MTpressure = pr
@@ -1309,7 +1302,7 @@ def updateWeatherTiles() {
             
 		// Rainfall
         	def rlh = null
-        	val = shortStats ? state.meteoWeather.current[12] : state.meteoWeather.current.rainfall
+        	val = settings.shortStats ? state.meteoWeather.current[12] : state.meteoWeather.current.rainfall
             if ((val != null) && (val == "")) val = null
             if (val != null) {
             	if (debug) log.debug "updateWeatherTiles() - updating rainfall"
@@ -1324,7 +1317,7 @@ def updateWeatherTiles() {
                     state.MTprecipToday = 0.0
                 }
             // Rainfall last hour
-            	val = shortStats ? state.meteoWeather.current[13] : state.meteoWeather.current.rainLastHour
+            	val = settings.shortStats ? state.meteoWeather.current[13] : state.meteoWeather.current.rainLastHour
                 if ((val != null) && (val == "")) val = null
                 if (val != null) {
                     rlh = roundIt(val, hd+1)
@@ -1338,7 +1331,7 @@ def updateWeatherTiles() {
                     send(name: 'precipLastHour', value: null, unit: "${h}", displayed: false)
                 }
             // Rainfall Rate
-                val = shortStats ? state.meteoWeather.current[15] : state.meteoWeather.current.rainRate
+                val = settings.shortStats ? state.meteoWeather.current[15] : state.meteoWeather.current.rainRate
                 if ((val != null) && (val == "")) val = null
                 if (val != null) {
                     def rrt = roundIt(val, hd)
@@ -1362,7 +1355,7 @@ def updateWeatherTiles() {
             }
             
         // Evapotranspiration - Note: requires Wind + Solar + UV + Temp + Humidity/dewpoint
-        	val = shortStats ? state.meteoWeather.current[14] : state.meteoWeather.current.evo
+        	val = settings.shortStats ? state.meteoWeather.current[14] : state.meteoWeather.current.evo
             if ((val != null) && (val == "")) val = null
             if (val != null) {
                 def et = roundIt(val, hd+1)
@@ -1378,22 +1371,22 @@ def updateWeatherTiles() {
 
 		// Wind
         	def ws, wg, wdt, wd
-        	val = shortStats ? state.meteoWeather.current[21] : state.meteoWeather.current.wind
+        	val = settings.shortStats ? state.meteoWeather.current[21] : state.meteoWeather.current.wind
             if ((val != null) && (val == "")) val = null
             if (val != null) {
             // Wind Speed
             	if (debug) log.debug "updateWeatherTiles() - updating wind"
-            	ws = roundIt(val,0)
+            	ws = roundIt(val,1)
 				state.MTwind = ws
             // Wind Gust
-                val = shortStats ? state.meteoWeather.current[19] : state.meteoWeather.current.windGust
+                val = settings.shortStats ? state.meteoWeather.current[19] : state.meteoWeather.current.windGust
                 if ((val != null) && (val == "")) val = null
                 if (val != null) {
-           			wg = roundIt(val,0)
+           			wg = roundIt(val,1)
 					state.MTgust = wg
                 }
             // Beaufort index
-                val = shortStats ? state.meteoWeather.current[22] : state.meteoWeather.current.windBft
+                val = settings.shortStats ? state.meteoWeather.current[22] : state.meteoWeather.current.windBft
                 if ((val != null) && (val == "")) val = null
                 if (val != null) {
 					state.MTwindBft = val
@@ -1405,12 +1398,12 @@ def updateWeatherTiles() {
                     state.MTwindBftText = ""
                 }
             // Wind Degrees
-                val = shortStats ? state.meteoWeather.current[20] : state.meteoWeather.current.windDir
+                val = settings.shortStats ? state.meteoWeather.current[20] : state.meteoWeather.current.windDir
                 if ((val != null) && (val == "")) val = null
-                wd = roundIt(val,0)
+                wd = roundIt(val,0)				
             // Wind Dir Text
                 // wdt = getDirText(val)
-                val = shortStats ? state.meteoWeather.current[18] : state.meteoWeather.current.windTxt
+                val = settings.shortStats ? state.meteoWeather.current[18] : state.meteoWeather.current.windTxt
                 if ((val != null) && (val == "")) val = null
                 wdt = val
             // Wind Info
@@ -1428,9 +1421,10 @@ def updateWeatherTiles() {
                 }
 				send(name: "windinfo", value: winfo, displayed: true, descriptionText: winfoDesc)
 				send(name: "windGust", value: "${wg}", unit: "${s}", displayed: false, descriptionText: "Winds gusting to ${wg} ${s}")
-				send(name: "windDirection", value: "${wdt}", displayed: false, descriptionText: "Winds are from the ${wdt}")
-				send(name: "windDirectionDegrees", value: "${wd}", unit: '°', displayed: false, descriptionText: "Winds from ${wd.toInteger()}°")
+				send(name: "windDirection", value: "${wd}", unit: 'degrees', displayed: false, descriptionText: "Winds from ${wd}°")
+				send(name: "windDirectionText", value: "${wdt}", displayed: false, descriptionText: "Winds are from the ${wdt}")
 				send(name: "wind", value: "${ws}", unit: "${s}", displayed: false, descriptionText: "Wind speed is ${ws} ${s}")
+				send(name: "windSpeed", value: "${ws}", unit: "${s}", displayed: false, descriptionText: "Wind speed is ${ws} ${s}")
 				
 			// Hubitat Dashboard / Tile Info
 				def wind_direction = getWindDirText( wdt )
@@ -1438,7 +1432,8 @@ def updateWeatherTiles() {
 				send(name: 'wind_gust', value: wg, unit: "${s}", displayed: false)
 				send(name: "wind_dir", value: wdt, displayed: false)
 				send(name: "wind_direction", value: wind_direction, displayed: false)
-				send(name: "wind_degree", value: "${wd.toInteger()}", unit: '°', displayed: false)
+				send(name: "wind_degree", value: "${wd}", unit: '°', displayed: false)
+				send(name: "wind_speed", value: "${ws}", unit: "${s}", displayed: false)
 				state.MTwindDir = wind_direction
             } else {
             	def isChange = isStateChange( device, 'wind', null)
@@ -1447,13 +1442,15 @@ def updateWeatherTiles() {
                     send(name: "windinfo", value: null, displayed: false)
                     send(name: "windGust", value: null, displayed: false)
                     send(name: "windDirection", value: null, displayed: false)
-                    send(name: "windDirectionDegrees", value: null, displayed: false)
+                    send(name: "windDirectionText", value: null, displayed: false)
                     send(name: "wind", value: null, displayed: false)
+					send(name: 'windSpeed', value: null, displayed: false)
 					send(name: 'wind_string', value: null, displayed: false)
 					send(name: 'wind_gust', value: null, displayed: false)
 					send(name: 'wind_dir', value: null, displayed: false)
 					send(name: 'wind_direction', value: null, displayed: false)
 					send(name: 'wind_degree', value: null, displayed: false)
+					send(name: 'wind_speed', value: null, displayed: false)
                 }
             }
             
@@ -1491,46 +1488,46 @@ def updateWeatherTiles() {
             }
 
 		// Date stuff
-        	if ( ((shortStats ? state.meteoWeather.current[0]  : state.meteoWeather.current.date) 		!= device.currentValue('currentDate')) || 
-            	 ((shortStats ? state.meteoWeather.current[26] : state.meteoWeather.current.sunrise) 	!= device.currentValue('sunrise')) ||
-                 ((shortStats ? state.meteoWeather.current[27] : state.meteoWeather.current.sunset) 	!= device.currentValue('sunset')) || 
-                 ((shortStats ? state.meteoWeather.current[23] : state.meteoWeather.current.dayHours)	!= device.currentValue('dayHours')) ||
-                 ((shortStats ? state.meteoWeather.current[34] : state.meteoWeather.current.moonrise) 	!= device.currentValue('moonrise')) || 
-                 ((shortStats ? state.meteoWeather.current[35] : state.meteoWeather.current.moonset) 	!= device.currentValue('moonset')) ) {
+        	if ( ((settings.shortStats ? state.meteoWeather.current[0]  : state.meteoWeather.current.date) 		!= device.currentValue('currentDate')) || 
+            	 ((settings.shortStats ? state.meteoWeather.current[26] : state.meteoWeather.current.sunrise) 	!= device.currentValue('sunrise')) ||
+                 ((settings.shortStats ? state.meteoWeather.current[27] : state.meteoWeather.current.sunset) 	!= device.currentValue('sunset')) || 
+                 ((settings.shortStats ? state.meteoWeather.current[23] : state.meteoWeather.current.dayHours)	!= device.currentValue('dayHours')) ||
+                 ((settings.shortStats ? state.meteoWeather.current[34] : state.meteoWeather.current.moonrise) 	!= device.currentValue('moonrise')) || 
+                 ((settings.shortStats ? state.meteoWeather.current[35] : state.meteoWeather.current.moonset) 	!= device.currentValue('moonset')) ) {
             	// If any Date/Time has changed, time to update them all
                 if (debug) log.debug "updateWeatherTiles() - updating dates"
                 
             // Sunrise / sunset
-            	val = shortStats ? state.meteoWeather.current[26] : state.meteoWeather.current.sunrise
+            	val = settings.shortStats ? state.meteoWeather.current[26] : state.meteoWeather.current.sunrise
                 if ((val != null) && (val == "")) val = null
                 if (val != null) updateMeteoTime(val, 'sunrise') else clearMeteoTime('sunrise')
-				val = shortStats ? state.meteoWeather.current[27] : state.meteoWeather.current.sunset
+				val = settings.shortStats ? state.meteoWeather.current[27] : state.meteoWeather.current.sunset
                 if ((val != null) && (val == "")) val = null
                 if (val != null) updateMeteoTime(val, 'sunset') else clearMeteoTime('sunset')
             // Daylight hours/minutes
-            	val = shortStats ? state.meteoWeather.current[23] : state.meteoWeather.current.dayHours
+            	val = settings.shortStats ? state.meteoWeather.current[23] : state.meteoWeather.current.dayHours
                 if ((val != null) && (val == "")) val = null
                 if (val != null) {
                 	send(name: "dayHours", value: val, descriptionText: "${val} hours of daylight today")
                 } else {
                 	send(name: 'dayHours', value: "--:--", displayed: false)
                 }
-                val = shortStats ? state.meteoWeather.current[28] : state.meteoWeather.current.dayMins
+                val = settings.shortStats ? state.meteoWeather.current[28] : state.meteoWeather.current.dayMins
                 if ((val != null) && (val == "")) val = null
                 if (val != null) {
                 	send(name: "dayMinutes", value: val, displayed: true, descriptionText: "${val} minutes of daylight today")
                 }
             // Moonrise / moonset
-            	val = shortStats ? state.meteoWeather.current[34] : state.meteoWeather.current.moonrise
+            	val = settings.shortStats ? state.meteoWeather.current[34] : state.meteoWeather.current.moonrise
                 if ((val != null) && (val == "")) val = null
                 if (val != null) updateMeteoTime(val, 'moonrise') else clearMeteoTime('moonrise')
-                val = shortStats ? state.meteoWeather.current[35] : state.meteoWeather.current.moonset
+                val = settings.shortStats ? state.meteoWeather.current[35] : state.meteoWeather.current.moonset
                 if ((val != null) && (val == "")) val = null
                 if (val != null) updateMeteoTime(val, 'moonset') else clearMeteoTime('moonset')
                 
             // update the date & time
-                send(name: 'currentDate', value: (shortStats ? state.meteoWeather.current[0] : state.meteoWeather.current.date), displayed: false)
-                send(name: 'currentTime', value: (shortStats ? state.meteoWeather.current[1] : state.meteoWeather.current.time), displayed: false)
+                send(name: 'currentDate', value: (settings.shortStats ? state.meteoWeather.current[0] : state.meteoWeather.current.date), displayed: false)
+                send(name: 'currentTime', value: (settings.shortStats ? state.meteoWeather.current[1] : state.meteoWeather.current.time), displayed: false)
 			}
             
         // Lux estimator - get every time, even if we aren't using Meteobridge data to calculate the lux
@@ -1542,11 +1539,11 @@ def updateWeatherTiles() {
         	if (debug) log.debug "updateWeatherTiles() - updating the moon"
         	String xn = 'x'				// For waxing/waning below
             String phase = null
-            val = shortStats ? state.meteoWeather.current[31] : state.meteoWeather.current.lunarAge
+            val = settings.shortStats ? state.meteoWeather.current[31] : state.meteoWeather.current.lunarAge
             if ((val != null) && (val == "")) val = null
             if (val != null) {
             	def l = val
-                val = shortStats ? state.meteoWeather.current[33] : state.meteoWeather.current.lunarSgt
+                val = settings.shortStats ? state.meteoWeather.current[33] : state.meteoWeather.current.lunarSgt
                 if ((val != null) && (val == "")) val = null
                 if (val != null) {
                     switch (val) {
@@ -1565,7 +1562,7 @@ def updateWeatherTiles() {
                     send(name: 'lunarAge', value: l, unit: 'days', displayed: false, descriptionText: "The Moon is ${l} days old" )        
                     send(name: 'moonAge', value: l, unit: 'days', displayed: false, descriptionText: "" )
                 }
-                val = shortStats ? state.meteoWeather.current[32] : state.meteoWeather.current.lunarPct
+                val = settings.shortStats ? state.meteoWeather.current[32] : state.meteoWeather.current.lunarPct
                 if ((val != null) && (val == "")) val = null
                 if (val != null) {
                     def lpct = roundIt(val, 0)
@@ -1596,10 +1593,10 @@ def updateWeatherTiles() {
             if (debug) log.debug "updateWeatherTiles() - updating timestamps"
             def nowText = null
             def date, time
-            val = shortStats ? state.meteoWeather.current[0] : state.meteoWeather.current.date
+            val = settings.shortStats ? state.meteoWeather.current[0] : state.meteoWeather.current.date
             if ((val != null) && (val == "")) val = null
             date = val
-            val = shortStats ? state.meteoWeather.current[1] : state.meteoWeather.current.time
+            val = settings.shortStats ? state.meteoWeather.current[1] : state.meteoWeather.current.time
             if ((val != null) && (val == "")) val = null
             time = val
             if ((date != null) && (time != null)) {
@@ -1724,6 +1721,8 @@ def darkSkyCallback(response, data) {
                     if (darkSky.currently.summary.startsWith('Humid')) icon = 'humid-' + icon
                     icon += '-night'                    
                     break;
+				case 'partly-cloudy-day':
+					icon = 'partly-cloudy-night'
                 case 'partly-cloudy-night':
                     if (darkSky.currently.summary.contains('Mostly Cloudy')) icon = 'mostly-cloudy-night'
                     if (darkSky.currently.summary.startsWith('Humid')) icon = 'humid-' + icon
@@ -1734,13 +1733,16 @@ def darkSkyCallback(response, data) {
                 case 'cloudy':
                 if (darkSky.currently.summary.startsWith('Humid')) icon = 'humid-' + icon + '-night'
                     break;
+				case 'cloudy-day':
+					icon = 'cloudy-night'
                 case 'cloudy-night':
                     if (darkSky.currently.summary.startsWith('Humid')) icon = 'humid-' + icon
                     break;
                 case 'clear':
                 case 'sunny':
+				case 'clear-day':
                     icon = 'clear-night'
-                case 'clear-night':
+				case 'clear-night':
                     if (darkSky.currently.summary.contains('Humid')) icon = 'humid-night'
                     break;
                 case 'wind':
@@ -1815,15 +1817,21 @@ def darkSkyCallback(response, data) {
                 case 'thunderstorm':
                     if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancetstorms'
                     break;
+				case 'partly-cloudy-night':
+					icon = 'partly-cloudy-day'
                 case 'partly-cloudy':
                 case 'partly-cloudy-day':
                     if (darkSky.currently.summary.contains('Mostly Cloudy')) icon = 'mostly-cloudy'
                     if (darkSky.currently.summary.startsWith('Humid')) icon = 'humid-' + icon
                     break;
+				case 'cloudy-night':
+					icong = 'cloudy-day'
                 case 'cloudy':
                 case 'cloudy-day':
                     if (darkSky.currently.summary.startsWith('Humid')) icon = 'humid-' + icon
                     break;
+				case 'clear-night':
+					icon = 'clear-day'
                 case 'clear':
                 case 'clear-day':
                     if (darkSky.currently.summary == 'Humid') icon = 'humid'
@@ -2359,7 +2367,7 @@ private String translateTwcIcon( Integer iconNumber ) {
 private estimateLux() {
 	def isNight = (device.currentValue('isDay') == 0)
 	// If we have it, use solarRadiation as a proxy for Lux
-    def val = shortStats ? state.meteoWeather.current[30] : state.meteoWeather?.current?.solRad
+    def val = settings.shortStats ? state.meteoWeather.current[30] : state.meteoWeather?.current?.solRad
     if ((val != null) && (val == "")) val = null
     if (val != null) {
     	def lux
@@ -2652,7 +2660,7 @@ def getYesterdayTemplate() {
 	String s = getTemperatureScale() 
 	String d = getMeteoSensorID() 
     // String d = '0'
-    if (shortStats) {
+    if (settings.shortStats) {
     	// yesterday:[max temp, min temp, max hum, min hum, total rain]
     	return "\"yesterday\":[[th${d}temp-ydmax=${s}.2:\"\"],[th${d}temp-ydmin=${s}.2:\"\"],[th${d}hum-ydmax=.2:\"\"],[th${d}hum-ydmin=.2:\"\"]," + yesterdayRainfall + ']}'
     } else {
@@ -2664,7 +2672,7 @@ def getCurrentTemplate() {
     String r = (height_units && (height_units == 'height_in')) ? 'in' : ''
 	String a = avgUpdates ? "avg${updateMins}" : 'act'
     // String d = '0'
-    if (shortStats) { //shortStats
+    if (settings.shortStats) { //shortStats
         // 0:date, 1:time, 2:humidity (out), 3:humidity (in), 
         // 4:temp (out), 5:dewpoint (out), 6:heatIndex, 7:windChill, 
         // 8:temp (in), 9:dewpoint (in), 10:high temp, 11:low temp,
@@ -2696,7 +2704,7 @@ def getTemperatureTemplate() {
     String d = getMeteoSensorID()
 	String a = avgUpdates ? "avg${updateMins}" : 'act'
     // String d = '0'
-    if (shortStats) {
+    if (settings.shortStats) {
     	return "[th${d}temp-${a}=${s}.2:\"\"],[th${d}dew-${a}=${s}.2:\"\"],[th${d}heatindex-${a}=${s}.2:\"\"],[wind${d}chill-${a}=${s}.2:\"\"]," +
     				"[thb${d}temp-${a}=${s}.2:\"\"],[thb${d}dew-${a}=${s}.2:\"\"],[th${d}temp-dmax=${s}.2:\"\"],[th${d}temp-dmin=${s}.2:\"\"],"
     } else {
@@ -2709,7 +2717,7 @@ def getPressureTemplate() {
     String d = getMeteoSensorID()
 	String a = avgUpdates ? "avg${updateMins}" : 'act'
     // String d = '0'
-    if (shortStats) {
+    if (settings.shortStats) {
     	return "[thb${d}seapress-${a}=${p}.2:\"\"],\"[thb${d}seapress-delta10=enbarotrend:]\","
     } else {
 		return "\"pressure\":[thb${d}seapress-${a}=${p}.2:\"\"],\"pTrend\":\"[thb${d}seapress-delta10=enbarotrend:]\","
@@ -2719,7 +2727,7 @@ def getYesterdayRainfall() {
 	String r = (height_units && (height_units == 'height_in')) ? 'in' : ''
     String d = getMeteoSensorID()
     // String d = '0'
-    if (shortStats) {
+    if (settings.shortStats) {
     	return "[rain${d}total-ydaysum=${r}.3:\"\"]"
     } else {
 		return "\"rainfall\":[rain${d}total-ydaysum=${r}.3:\"\"]" 
@@ -2730,7 +2738,7 @@ def getCurrentRainfall() {
     String d = getMeteoSensorID()
 	String a = avgUpdates ? "avg${updateMins}" : 'act'
     // String d = '0'
-    if (shortStats) {
+    if (settings.shortStats) {
     	return "[rain${d}total-daysum=${r}.3:\"\"],[rain${d}total-sum1h=${r}.3:\"\"],[sol${d}evo-${a}=${r}.3:\"\"],[rain${d}rate-${a}=${r}.3:\"\"],"
     } else {
 		return "\"rainfall\":[rain${d}total-daysum=${r}.3:\"\"],\"rainLastHour\":[rain${d}total-sum1h=${r}.3:\"\"],\"evo\":[sol${d}evo-${a}=${r}.3:\"\"],\"rainRate\":[rain${d}rate-${a}=${r}.3:\"\"],"
@@ -2741,7 +2749,7 @@ def getWindTemplate() {
     String d = getMeteoSensorID()
 	String a = avgUpdates ? "avg${updateMins}" : 'act'
     // String d = '0'
-    if (shortStats) {
+    if (settings.shortStats) {
 		return "\"[wind${d}dir-${a}=endir:N/A]\",[wind${d}wind-max10=${s}.2:\"\"],[wind${d}dir-${a}:\"\"],[wind${d}wind-${a}=${s}.2:\"\"],[wind${d}wind-${a}=bft.0:\"\"],"
     } else {
 		return "\"windTxt\":\"[wind${d}dir-${a}=endir:N/A]\",\"windGust\":[wind${d}wind-max10=${s}.2:\"\"],\"windDir\":[wind${d}dir-${a}:\"\"],\"wind\":[wind${d}wind-${a}=${s}.2:\"\"]," +
@@ -2789,9 +2797,15 @@ String getBeaufortText(bftForce) {
 	}
 }
 
-private getImgIcon(String weatherCode){
+String getImgIcon(String weatherCode){
+	if (debug) log.debug "weatherCode: ${weatherCode}"
     def LUitem = LUTable.find{ it.name == weatherCode }
 	return (LUitem ? LUitem.icon : "https://raw.githubusercontent.com/SANdood/Icons/master/Weather/na.png")
+}
+
+String getOwmIcon(String weatherCode) {
+	def LUitem = LUTable.find{ it.name == weatherCode }
+	return (LUitem ? LUitem.	owmIcon : "50d")
 }
 			
 private getImgText(weatherCode){
@@ -2801,185 +2815,185 @@ private getImgText(weatherCode){
 
 // https://github.com/SANdood/Icons/blob/master/Weather/0.png
 @Field final List LUTable = [
-		[ name: "chanceflurries", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: "Chance of Flurries" ],
-		[ name: "chancelightsnow", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: "Possible Light Snow" ],
-		[ name: "chancelightsnowbreezy", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41b.png", 	label: "Possible Light Snow and Breezy" ],
-		[ name: "chancelightsnowwindy", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41b.png", 	label: "Possible Light Snow and Windy" ],
-		[ name: "chancerain", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: "Chance of Rain" ],
-		[ name: "chancedrizzle", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: "Chance of Drizzle" ],
-		[ name: "chancelightrain", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: "Chance of Light Rain" ],
-		[ name: "chancesleet", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: "Chance of Sleet" ],
-		[ name: "chancesnow", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: "Chance of Snow" ],
-		[ name: "chancetstorms", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/38.png", 	label: "Chance of Thunderstorms" ],
-		[ name: "clear", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/32.png", 	label: "Clear" ],
-		[ name: "humid", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/36.png", 	label: "Humid" ],
-		[ name: "sunny", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/36.png", 	label: "Sunny" ],
-		[ name: "clear-day",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/32.png", 	label: "Clear" ],
-		[ name: "cloudy", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/26.png", 	label: "Overcast" ],
-		[ name: "humid-cloudy",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/26.png", 	label: "Humid and Overcast" ],
-		[ name: "flurries", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/13.png", 	label: "Snow Flurries" ],
-		[ name: "scattered-flurries", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: "Scattered Snow Flurries" ],	
-		[ name: "scattered-snow", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: "Scattered Snow Showers" ],
-		[ name: "lightsnow", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/14.png", 	label: "Light Snow" ],
-		[ name: "frigid-ice", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/10.png", 	label: "Frigid / Ice Crystals" ],
-		[ name: "fog", 						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/20.png", 	label: "Foggy" ],
-		[ name: "hazy", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/21.png", 	label: "Hazy" ],
-		[ name: "smoke",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/22.png", 	label: "Smoke" ],
-		[ name: "mostlycloudy", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28.png", 	label: "Mostly Cloudy" ],
-		[ name: "mostly-cloudy", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28.png", 	label: "Mostly Cloudy" ],
-		[ name: "mostly-cloudy-day",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28.png", 	label: "Mostly Cloudy" ],
-		[ name: "humid-mostly-cloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28.png", 	label: "Humid and Mostly Cloudy" ],
-		[ name: "humid-mostly-cloudy-day", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28.png", 	label: "Humid and Mostly Cloudy" ],
-		[ name: "mostlysunny", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/34.png", 	label: "Mostly Sunny" ],
-		[ name: "partlycloudy", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/30.png", 	label: "Partly Cloudy" ],
-		[ name: "partly-cloudy", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/30.png", 	label: "Partly Cloudy" ],
-		[ name: "partly-cloudy-day",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/30.png", 	label: "Partly Cloudy" ],
-		[ name: "humid-partly-cloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/30.png", 	label: "Humid and Partly Cloudy" ],
-		[ name: "humid-partly-cloudy-day", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/30.png", 	label: "Humid and Partly Cloudy" ],
-		[ name: "partlysunny", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28.png", 	label: "Partly Sunny" ],	
-		[ name: "rain", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/12.png", 	label: "Rain" ],
-		[ name: "rain-breezy",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: "Rain and Breezy" ],
-		[ name: "rain-windy",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: "Rain and Windy" ],
-		[ name: "rain-windy!",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: "Rain and Dangerously Windy" ],
-		[ name: "heavyrain", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/12.png", 	label: "Heavy Rain" ],
-		[ name: "heavyrain-breezy",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: "Heavy Rain and Breezy" ],
-		[ name: "heavyrain-windy", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: "Heavy Rain and Windy" ],
-		[ name: "heavyrain-windy!", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: "Heavy Rain and Dangerously Windy" ],
-		[ name: "drizzle",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/9.png", 	label: "Drizzle" ],
-		[ name: "lightdrizzle",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/9.png", 	label: "Light Drizzle" ],
-		[ name: "heavydrizzle",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/9.png", 	label: "Heavy Drizzle" ],
-		[ name: "lightrain",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: "Light Rain" ],
-		[ name: "scattered-showers",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: "Scattered Showers" ],
-		[ name: "lightrain-breezy",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: "Light Rain and Breezy" ],
-		[ name: "lightrain-windy",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: "Light Rain and Windy" ],
-		[ name: "lightrain-windy!",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: "Light Rain and Dangerously Windy" ],	
-		[ name: "sleet",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/10.png", 	label: "Sleet" ],
-		[ name: "lightsleet",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/8.png", 	label: "Light Sleet" ],
-		[ name: "heavysleet",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/10.png", 	label: "Heavy Sleet" ],
-		[ name: "rain-sleet",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/6.png", 	label: "Rain and Sleet" ],
-		[ name: "winter-mix",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/7.png", 	label: "Wintery Mix of Snow and Sleet" ],
-		[ name: "freezing-drizzle",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/8.png", 	label: "Freezing Drizzle" ],
-		[ name: "freezing-rain",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/10.png", 	label: "Freezing Rain" ],
-		[ name: "snow", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/15.png", 	label: "Snow" ],
-		[ name: "heavysnow", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/16.png", 	label: "Heavy Snow" ],
-		[ name: "blizzard", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/42.png", 	label: "Blizzard" ],
-		[ name: "rain-snow", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/7.png", 	label: "Rain to Snow Showers" ],
-		[ name: "tstorms", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/0.png", 	label: "Thunderstorms" ],
-		[ name: "tstorms-iso", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/37.png", 	label: "Isolated Thunderstorms" ],
-		[ name: "thunderstorm", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/0.png", 	label: "Thunderstorm" ],
-		[ name: "windy",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy" ],
-		[ name: "wind",						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy" ],
-		[ name: "sandstorm",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/19b.png", 	label: "Blowing Dust / Sandstorm" ],
-		[ name: "blowing-spray",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy / Blowing Spray" ],
-		[ name: "wind!",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Dangerously Windy" ],
-		[ name: "wind-foggy",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy and Foggy" ],
-		[ name: "wind-overcast",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24c.png", 	label: "Windy and Overcast" ],
-		[ name: "wind-overcast!",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24c.png", 	label: "Dangerously Windy and Overcast" ],
-		[ name: "wind-partlycloudy",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/30b.png", 	label: "Windy and Partly Cloudy" ],
-		[ name: "wind-partlycloudy!", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/30b.png", 	label: "Dangerously Windy and Partly Cloudy" ],
-		[ name: "wind-mostlycloudy",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28b.png", 	label: "Windy and Mostly Cloudy" ],
-		[ name: "wind-mostlycloudy!",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28b.png", 	label: "Dangerously Windy and Mostly Cloudy" ],
-		[ name: "breezy",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Breezy" ],
-		[ name: "breezy-overcast",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24b.png", 	label: "Breezy and Overcast" ],
-		[ name: "breezy-partlycloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/30b.png", 	label: "Breezy and Partly Cloudy" ],
-		[ name: "breezy-mostlycloudy", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28b.png", 	label: "Breezy and Mostly Cloudy" ],
-		[ name: "breezy-foggy", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/20b.png", 	label: "Breezy and Foggy" ],	
-		[ name: "tornado",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/to.png",	label: "Tornado" ],
-		[ name: "hail",						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/18.png",	label: "Hail Storm" ],
-		[ name: "thunder-hail",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png",	label: "Thunder and Hail Storm" ],
-		[ name: "rain-hail",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/7.png",	label: "Mixed Rain and Hail" ],
-		[ name: "nt_chanceflurries", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: "Chance of Flurries" ],
-		[ name: "chancelightsnow-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png", 	label: "Possible Light Snow" ],
-		[ name: "chancelightsnowbz-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46b.png", 	label: "Possible Light Snow and Breezy" ],
-		[ name: "chancelightsnowy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46b.png", 	label: "Possible Light Snow and Windy" ],
-		[ name: "nt_chancerain", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: "Chance of Rain" ],
-		[ name: "chancerain-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: "Chance of Rain" ],
-		[ name: "chancelightrain-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/45.png", 	label: "Chance of Light Rain" ],
-		[ name: "nt_chancesleet", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png",	label: "Chance of Sleet" ],
-		[ name: "chancesleet-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png",	label: "Chance of Sleet" ],
-		[ name: "nt_chancesnow", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png", 	label: "Chance of Snow" ],
-		[ name: "chancesnow-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png", 	label: "Chance of Snow" ],
-		[ name: "nt_chancetstorms", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/47.png",	label: "Chance of Thunderstorms" ],
-		[ name: "chancetstorms-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/47.png",	label: "Chance of Thunderstorms" ],
-		[ name: "nt_clear", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31.png", 	label: "Clear" ],
-		[ name: "clear-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31.png", 	label: "Clear" ],
-		[ name: "humid-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31.png", 	label: "Humid" ],
-		[ name: "nt_sunny", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31.png", 	label: "Clear" ],
-		[ name: "nt_cloudy", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/26.png", 	label: "Overcast" ],
-		[ name: "cloudy-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/26.png", 	label: "Overcast" ],
-		[ name: "humid-cloudy-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/26.png", 	label: "Humid and Overcast" ],	
-		[ name: "nt_fog", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31b.png", 	label: "Foggy" ],
-		[ name: "fog-night", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31b.png", 	label: "Foggy" ],
-		[ name: "nt_hazy", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31b.png", 	label: "Hazy" ],
-		[ name: "nt_mostlycloudy", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27.png",	label: "Mostly Cloudy" ],
-		[ name: "mostly-cloudy-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27.png",	label: "Mostly Cloudy" ],
-		[ name: "humid-mostly-cloudy-night",icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27.png", 	label: "Humid and Mostly Cloudy" ],
-		[ name: "nt_mostlysunny", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/33.png",	label: "Mostly Clear" ],
-		[ name: "nt_partlycloudy", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/29.png",	label: "Partly Cloudy" ],
-		[ name: "partly-cloudy-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/29.png",	label: "Partly Cloudy" ],
-		[ name: "humid-partly-cloudy-night",icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/29.png", 	label: "Humid and Partly Cloudy" ],
-		[ name: "nt_partlysunny", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27.png",	label: "Partly Clear" ],
-		[ name: "nt_scattered-flurries", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/13.png", 	label: "Flurries" ],
-		[ name: "nt_flurries", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: "Scattered Flurries" ],
-		[ name: "flurries-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/13.png", 	label: "Flurries" ],
-		[ name: "lightsnow-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/14.png", 	label: "Light Snow" ],
-		[ name: "nt_rain", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: "Rain" ],
-		[ name: "rain-night", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: "Rain" ],
-		[ name: "rain-breezy-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: "Rain and Breezy" ],
-		[ name: "rain-windy-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: "Rain and Windy" ],
-		[ name: "rain-windy-night!", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: "Rain and Dangerously Windy" ],
-		[ name: "heavyrain-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/12.png", 	label: "Heavy Rain" ],
-		[ name: "heavyrain-breezy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png",	label: "Heavy Rain and Breezy" ],
-		[ name: "heavyrain-windy-night",	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: "Heavy Rain and Windy" ],
-		[ name: "heavyrain-windy-night!", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png",	label: "Heavy Rain and Dangerously Windy" ],
-		[ name: "nt_drizzle", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/9.png", 	label: "Drizzle" ],
-		[ name: "drizzle-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/9.png", 	label: "Drizzle" ],
-		[ name: "nt_lightrain", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: "Light Rain" ],
-		[ name: "lightrain-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: "Light Rain" ],	
-		[ name: "nt_scattered-rain", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: "Scattered Showers" ],
-		[ name: "lightrain-breezy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: "Light Rain and Breezy" ],
-		[ name: "lightrain-windy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: "Light Rain and Windy" ],
-		[ name: "lightrain-windy-night!", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: "Light Rain and Dangerously Windy" ],
-		[ name: "nt_sleet", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png",	label: "Sleet" ],
-		[ name: "sleet-night", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png",	label: "Sleet" ],
-		[ name: "lightsleet-night",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png",	label: "Sleet" ],
-		[ name: "nt_rain-sleet",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png",	label: "Rain and Sleet" ],
-		[ name: "nt_thunder-hail",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/47.png",	label: "Thunder and Hail Storm" ],
-		[ name: "nt_winter-mix",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/7.png",	label: "Winter Mix of Sleet and Snow" ],
-		[ name: "nt_freezing-drizzle", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/8.png",	label: "Freezing Drizzle" ],
-		[ name: "nt_freezing-rain", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/8.png",	label: "Freezing Rain" ],
-		[ name: "nt_snow", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png,",	label: "Snow" ],
-		[ name: "nt_rain-snow", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png,",	label: "Rain and Snow Showers" ],
-		[ name: "snow-night", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png,",	label: "Snow" ],
-		[ name: "nt_heavysnow", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/42.png,",	label: "Heavy Snow" ],
-		[ name: "nt_heavysnow", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/42.png,",	label: "Heavy Snow" ],
-		[ name: "nt_tstorms", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/47.png",	label: "Thunderstorms" ],
-		[ name: "nt_blizzard", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/42.png",	label: "Blizzard" ],
-		[ name: "nt_thunderstorm", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/0.png",	label: "Thunderstorm" ],
-		[ name: "thunderstorm-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/0.png",	label: "Thunderstorm" ],
-		[ name: "nt_windy",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy" ],
-		[ name: "windy-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy" ],
-		[ name: "wind-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy" ],
-		[ name: "wind-night!",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Dangerously Windy" ],
-		[ name: "wind-foggy-night",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/20b.png", 	label: "Windy and Foggy" ],
-		[ name: "wind-overcast-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24b.png", 	label: "Windy and Overcast" ],
-		[ name: "wind-overcast-night!", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24b.png", 	label: "Dangerously Windy and Overcast" ],
-		[ name: "wind-partlycloudy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/29b.png", 	label: "Windy and Partly Cloudy" ],
-		[ name: "wind-partlycloudy-night!", icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/29b.png", 	label: "Dangerously Windy and Partly Cloudy" ],
-		[ name: "wind-mostlycloudy-night", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27b.png", 	label: "Windy and Mostly Cloudy" ],
-		[ name: "wind-mostly-cloudy-night!",icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27b.png", 	label: "Dangerously Windy and Mostly Cloudy" ],
-		[ name: "breezy-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Breezy" ],
-		[ name: "breezy-overcast-night",	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24b.png", 	label: "Breezy and Overcast" ],
-		[ name: "breezy-partlycloudy-night",icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/29b.png", 	label: "Breezy and Partly Cloudy" ],
-		[ name: "breezy-mostlycloudy-night",icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27b.png", 	label: "Breezy and Mostly Cloudy" ],
-		[ name: "breezy-foggy-night",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/20b.png", 	label: "Breezy and Foggy" ],
-		[ name: "nt_tornado",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/to.png",	label: "Tornado" ],
-		[ name: "tornado-night",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/to.png",	label: "Tornado" ],
-		[ name: "nt_hail",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46b.png",	label: "Hail" ],
-		[ name: "hail-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46b.png",	label: "Hail" ],
-		[ name: "na",						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/na.png",	label: "Not Available" ],
-        [ name: "unknown",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/na.png",	label: "Unknown" ],
-		[ name: "hurricane",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/hc.png",	label: "Hurricane" ],
-		[ name: "tropical-storm",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/38.png",	label: "Tropical Storm" ]
+		[ name: "chanceflurries", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: "Chance of Flurries", 					owmIcon: "13d" ],
+		[ name: "chancelightsnow", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: "Possible Light Snow", 					owmIcon: "13d" ],
+		[ name: "chancelightsnowbreezy", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41b.png", 	label: "Possible Light Snow and Breezy",		owmIcon: "13d" ],
+		[ name: "chancelightsnowwindy", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41b.png", 	label: "Possible Light Snow and Windy", 		owmIcon: "13d" ],
+		[ name: "chancerain", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: "Chance of Rain", 						owmIcon: "10d" ],
+		[ name: "chancedrizzle", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: "Chance of Drizzle", 					owmIcon: "10d" ],
+		[ name: "chancelightrain", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: "Chance of Light Rain", 					owmIcon: "10d" ],
+		[ name: "chancesleet", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: "Chance of Sleet", 						owmIcon: "13d" ],
+		[ name: "chancesnow", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: "Chance of Snow", 						owmIcon: "13d" ],
+		[ name: "chancetstorms", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/38.png", 	label: "Chance of Thunderstorms", 				owmIcon: "11d" ],
+		[ name: "clear", 						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/32.png", 	label: "Clear", 								owmIcon: "01d" ],
+		[ name: "humid", 						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/36.png", 	label: "Humid", 								owmIcon: "01d" ],
+		[ name: "sunny", 						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/36.png", 	label: "Sunny", 								owmIcon: "01d" ],
+		[ name: "clear-day",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/32.png", 	label: "Clear", 								owmIcon: "01d" ],
+		[ name: "cloudy", 						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/26.png", 	label: "Overcast", 								owmIcon: "04d" ],
+		[ name: "humid-cloudy",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/26.png", 	label: "Humid and Overcast", 					owmIcon: "04d" ],
+		[ name: "flurries", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/13.png", 	label: "Snow Flurries", 						owmIcon: "13d" ],
+		[ name: "scattered-flurries", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: "Scattered Snow Flurries", 				owmIcon: "13d" ],	
+		[ name: "scattered-snow", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: "Scattered Snow Showers", 				owmIcon: "13d" ],
+		[ name: "lightsnow", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/14.png", 	label: "Light Snow", 							owmIcon: "13d" ],
+		[ name: "frigid-ice", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/10.png", 	label: "Frigid / Ice Crystals", 				owmIcon: "13d" ],
+		[ name: "fog", 							icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/20.png", 	label: "Foggy", 								owmIcon: "50d" ],
+		[ name: "hazy", 						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/21.png", 	label: "Hazy", 									owmIcon: "50d" ],
+		[ name: "smoke",						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/22.png", 	label: "Smoke", 								owmIcon: "50d" ],
+		[ name: "mostlycloudy", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28.png", 	label: "Mostly Cloudy", 						owmIcon: "04d" ],
+		[ name: "mostly-cloudy", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28.png", 	label: "Mostly Cloudy", 						owmIcon: "04d" ],
+		[ name: "mostly-cloudy-day",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28.png", 	label: "Mostly Cloudy", 						owmIcon: "04d" ],
+		[ name: "humid-mostly-cloudy", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28.png", 	label: "Humid and Mostly Cloudy", 				owmIcon: "04d" ],
+		[ name: "humid-mostly-cloudy-day", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28.png", 	label: "Humid and Mostly Cloudy", 				owmIcon: "04d" ],
+		[ name: "mostlysunny", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/34.png", 	label: "Mostly Sunny", 							owmIcon: "02d" ],
+		[ name: "partlycloudy", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/30.png", 	label: "Partly Cloudy", 						owmIcon: "03d" ],
+		[ name: "partly-cloudy", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/30.png", 	label: "Partly Cloudy", 						owmIcon: "03d" ],
+		[ name: "partly-cloudy-day",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/30.png", 	label: "Partly Cloudy", 						owmIcon: "03d" ],
+		[ name: "humid-partly-cloudy", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/30.png", 	label: "Humid and Partly Cloudy", 				owmIcon: "03d" ],
+		[ name: "humid-partly-cloudy-day", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/30.png", 	label: "Humid and Partly Cloudy", 				owmIcon: "03d" ],
+		[ name: "partlysunny", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28.png", 	label: "Partly Sunny", 							owmIcon: "02d" ],	
+		[ name: "rain", 						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/12.png", 	label: "Rain", 									owmIcon: "10d" ],
+		[ name: "rain-breezy",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: "Rain and Breezy", 						owmIcon: "10d" ],
+		[ name: "rain-windy",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: "Rain and Windy", 						owmIcon: "10d" ],
+		[ name: "rain-windy!",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: "Rain and Dangerously Windy", 			owmIcon: "10d" ],
+		[ name: "heavyrain", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/12.png", 	label: "Heavy Rain", 							owmIcon: "10d" ],
+		[ name: "heavyrain-breezy",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: "Heavy Rain and Breezy", 				owmIcon: "10d" ],
+		[ name: "heavyrain-windy", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: "Heavy Rain and Windy", 					owmIcon: "10d" ],
+		[ name: "heavyrain-windy!", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: "Heavy Rain and Dangerously Windy", 		owmIcon: "10d" ],
+		[ name: "drizzle",						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/9.png", 	label: "Drizzle", 								owmIcon: "09d" ],
+		[ name: "lightdrizzle",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/9.png", 	label: "Light Drizzle", 						owmIcon: "09d" ],
+		[ name: "heavydrizzle",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/9.png", 	label: "Heavy Drizzle", 						owmIcon: "09d" ],
+		[ name: "lightrain",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: "Light Rain", 							owmIcon: "10d" ],
+		[ name: "scattered-showers",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: "Scattered Showers", 					owmIcon: "09d" ],
+		[ name: "lightrain-breezy",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: "Light Rain and Breezy", 				owmIcon: "10d" ],
+		[ name: "lightrain-windy",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: "Light Rain and Windy", 					owmIcon: "10d" ],
+		[ name: "lightrain-windy!",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: "Light Rain and Dangerously Windy", 		owmIcon: "10d" ],	
+		[ name: "sleet",						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/10.png", 	label: "Sleet", 								owmIcon: "13d" ],
+		[ name: "lightsleet",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/8.png", 	label: "Light Sleet", 							owmIcon: "13d" ],
+		[ name: "heavysleet",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/10.png", 	label: "Heavy Sleet", 							owmIcon: "13d" ],
+		[ name: "rain-sleet",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/6.png", 	label: "Rain and Sleet", 						owmIcon: "13d" ],
+		[ name: "winter-mix",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/7.png", 	label: "Wintery Mix of Snow and Sleet", 		owmIcon: "13d" ],
+		[ name: "freezing-drizzle",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/8.png", 	label: "Freezing Drizzle", 						owmIcon: "13d" ],
+		[ name: "freezing-rain",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/10.png", 	label: "Freezing Rain", 						owmIcon: "13d" ],
+		[ name: "snow", 						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/15.png", 	label: "Snow", 									owmIcon: "13d" ],
+		[ name: "heavysnow", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/16.png", 	label: "Heavy Snow", 							owmIcon: "13d" ],
+		[ name: "blizzard", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/42.png", 	label: "Blizzard", 								owmIcon: "13d" ],
+		[ name: "rain-snow", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/7.png", 	label: "Rain to Snow Showers", 					owmIcon: "13d" ],
+		[ name: "tstorms", 						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/0.png", 	label: "Thunderstorms", 						owmIcon: "11d" ],
+		[ name: "tstorms-iso", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/37.png", 	label: "Isolated Thunderstorms", 				owmIcon: "11d" ],
+		[ name: "thunderstorm", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/0.png", 	label: "Thunderstorm", 							owmIcon: "11d" ],
+		[ name: "windy",						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy", 								owmIcon: "50d" ],
+		[ name: "wind",							icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy", 								owmIcon: "50d" ],
+		[ name: "sandstorm",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/19b.png", 	label: "Blowing Dust / Sandstorm", 				owmIcon: "50d" ],
+		[ name: "blowing-spray",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy / Blowing Spray", 				owmIcon: "50d" ],
+		[ name: "wind!",						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Dangerously Windy", 					owmIcon: "50d" ],
+		[ name: "wind-foggy",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy and Foggy", 						owmIcon: "50d" ],
+		[ name: "wind-overcast",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24c.png", 	label: "Windy and Overcast", 					owmIcon: "50d" ],
+		[ name: "wind-overcast!",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24c.png", 	label: "Dangerously Windy and Overcast", 		owmIcon: "50d" ],
+		[ name: "wind-partlycloudy",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/30b.png", 	label: "Windy and Partly Cloudy", 				owmIcon: "50d" ],
+		[ name: "wind-partlycloudy!", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/30b.png", 	label: "Dangerously Windy and Partly Cloudy", 	owmIcon: "50d" ],
+		[ name: "wind-mostlycloudy",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28b.png", 	label: "Windy and Mostly Cloudy", 				owmIcon: "50d" ],
+		[ name: "wind-mostlycloudy!",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28b.png", 	label: "Dangerously Windy and Mostly Cloudy", 	owmIcon: "50d" ],
+		[ name: "breezy",						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Breezy", 								owmIcon: "50d" ],
+		[ name: "breezy-overcast",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24b.png", 	label: "Breezy and Overcast", 					owmIcon: "04d" ],
+		[ name: "breezy-partlycloudy", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/30b.png", 	label: "Breezy and Partly Cloudy", 				owmIcon: "03d" ],
+		[ name: "breezy-mostlycloudy", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/28b.png", 	label: "Breezy and Mostly Cloudy", 				owmIcon: "04d" ],
+		[ name: "breezy-foggy", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/20b.png", 	label: "Breezy and Foggy", 						owmIcon: "50d" ],	
+		[ name: "tornado",						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/to.png",	label: "Tornado", 								owmIcon: "50d" ],
+		[ name: "hail",							icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/18.png",	label: "Hail Storm", 							owmIcon: "09d" ],
+		[ name: "thunder-hail",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png",	label: "Thunder and Hail Storm", 				owmIcon: "11d" ],
+		[ name: "rain-hail",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/7.png",	label: "Mixed Rain and Hail", 					owmIcon: "09d" ],
+		[ name: "nt_chanceflurries", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: "Chance of Flurries", 					owmIcon: "13d" ],
+		[ name: "chancelightsnow-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png", 	label: "Possible Light Snow", 					owmIcon: "13n" ],
+		[ name: "chancelightsnowbz-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46b.png", 	label: "Possible Light Snow and Breezy", 		owmIcon: "13n" ],
+		[ name: "chancelightsnowy-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46b.png", 	label: "Possible Light Snow and Windy", 		owmIcon: "13n" ],
+		[ name: "nt_chancerain", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: "Chance of Rain", 						owmIcon: "09n" ],
+		[ name: "chancerain-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: "Chance of Rain", 						owmIcon: "09n" ],
+		[ name: "chancelightrain-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/45.png", 	label: "Chance of Light Rain", 					owmIcon: "09n" ],
+		[ name: "nt_chancesleet", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png",	label: "Chance of Sleet", 						owmIcon: "13n" ],
+		[ name: "chancesleet-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png",	label: "Chance of Sleet", 						owmIcon: "13n" ],
+		[ name: "nt_chancesnow", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png", 	label: "Chance of Snow", 						owmIcon: "13n" ],
+		[ name: "chancesnow-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png", 	label: "Chance of Snow", 						owmIcon: "13n" ],
+		[ name: "nt_chancetstorms", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/47.png",	label: "Chance of Thunderstorms", 				owmIcon: "11n" ],
+		[ name: "chancetstorms-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/47.png",	label: "Chance of Thunderstorms", 				owmIcon: "11n" ],
+		[ name: "nt_clear", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31.png", 	label: "Clear", 								owmIcon: "01n" ],
+		[ name: "clear-night",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31.png", 	label: "Clear", 								owmIcon: "01n" ],
+		[ name: "humid-night",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31.png", 	label: "Humid", 								owmIcon: "01n" ],
+		[ name: "nt_sunny", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31.png", 	label: "Clear", 								owmIcon: "01n" ],
+		[ name: "nt_cloudy", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/26.png", 	label: "Overcast", 								owmIcon: "04n" ],
+		[ name: "cloudy-night", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/26.png", 	label: "Overcast", 								owmIcon: "04n" ],
+		[ name: "humid-cloudy-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/26.png", 	label: "Humid and Overcast", 					owmIcon: "04n" ],	
+		[ name: "nt_fog", 						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31b.png", 	label: "Foggy", 								owmIcon: "50n" ],
+		[ name: "fog-night", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31b.png", 	label: "Foggy", 								owmIcon: "50n" ],
+		[ name: "nt_hazy", 						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/31b.png", 	label: "Hazy", 									owmIcon: "50n" ],
+		[ name: "nt_mostlycloudy", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27.png",	label: "Mostly Cloudy", 						owmIcon: "04n" ],
+		[ name: "mostly-cloudy-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27.png",	label: "Mostly Cloudy", 						owmIcon: "04n" ],
+		[ name: "humid-mostly-cloudy-night",	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27.png", 	label: "Humid and Mostly Cloudy", 				owmIcon: "04n" ],
+		[ name: "nt_mostlysunny", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/33.png",	label: "Mostly Clear", 							owmIcon: "02n" ],
+		[ name: "nt_partlycloudy", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/29.png",	label: "Partly Cloudy", 						owmIcon: "03n" ],
+		[ name: "partly-cloudy-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/29.png",	label: "Partly Cloudy", 						owmIcon: "03n" ],
+		[ name: "humid-partly-cloudy-night",	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/29.png", 	label: "Humid and Partly Cloudy", 				owmIcon: "03n" ],
+		[ name: "nt_partlysunny", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27.png",	label: "Partly Clear", 							owmIcon: "02n" ],
+		[ name: "nt_scattered-flurries", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/13.png", 	label: "Flurries", 								owmIcon: "13n" ],
+		[ name: "nt_flurries", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/41.png", 	label: "Scattered Flurries", 					owmIcon: "13n" ],
+		[ name: "flurries-night", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/13.png", 	label: "Flurries", 								owmIcon: "13n" ],
+		[ name: "lightsnow-night", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/14.png", 	label: "Light Snow", 							owmIcon: "13n" ],
+		[ name: "nt_rain", 						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: "Rain", 									owmIcon: "10n" ],
+		[ name: "rain-night", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: "Rain", 									owmIcon: "10n" ],
+		[ name: "rain-breezy-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: "Rain and Breezy", 						owmIcon: "10n" ],
+		[ name: "rain-windy-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: "Rain and Windy", 						owmIcon: "10n" ],
+		[ name: "rain-windy-night!", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/2.png", 	label: "Rain and Dangerously Windy", 			owmIcon: "10n" ],
+		[ name: "heavyrain-night", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/12.png", 	label: "Heavy Rain", 							owmIcon: "10n" ],
+		[ name: "heavyrain-breezy-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png",	label: "Heavy Rain and Breezy", 				owmIcon: "10n" ],
+		[ name: "heavyrain-windy-night",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png", 	label: "Heavy Rain and Windy", 					owmIcon: "10n" ],
+		[ name: "heavyrain-windy-night!", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/1.png",	label: "Heavy Rain and Dangerously Windy", 		owmIcon: "10n" ],
+		[ name: "nt_drizzle", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/9.png", 	label: "Drizzle", 								owmIcon: "09n" ],
+		[ name: "drizzle-night", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/9.png", 	label: "Drizzle", 								owmIcon: "09n" ],
+		[ name: "nt_lightrain", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: "Light Rain", 							owmIcon: "09n" ],
+		[ name: "lightrain-night", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: "Light Rain", 							owmIcon: "09n" ],	
+		[ name: "nt_scattered-rain", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/39.png", 	label: "Scattered Showers", 					owmIcon: "09n" ],
+		[ name: "lightrain-breezy-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: "Light Rain and Breezy", 				owmIcon: "09n" ],
+		[ name: "lightrain-windy-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: "Light Rain and Windy", 					owmIcon: "09n" ],
+		[ name: "lightrain-windy-night!", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/11.png", 	label: "Light Rain and Dangerously Windy", 		owmIcon: "09n" ],
+		[ name: "nt_sleet", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png",	label: "Sleet", 								owmIcon: "13n" ],
+		[ name: "sleet-night", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png",	label: "Sleet", 								owmIcon: "13n" ],
+		[ name: "lightsleet-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png",	label: "Sleet", 								owmIcon: "13n" ],
+		[ name: "nt_rain-sleet",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png",	label: "Rain and Sleet", 						owmIcon: "13n" ],
+		[ name: "nt_thunder-hail",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/47.png",	label: "Thunder and Hail Storm", 				owmIcon: "11n" ],
+		[ name: "nt_winter-mix",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/7.png",	label: "Winter Mix of Sleet and Snow", 			owmIcon: "13n" ],
+		[ name: "nt_freezing-drizzle", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/8.png",	label: "Freezing Drizzle", 						owmIcon: "13n" ],
+		[ name: "nt_freezing-rain", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/8.png",	label: "Freezing Rain", 						owmIcon: "13n" ],
+		[ name: "nt_snow", 						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png,",	label: "Snow", 									owmIcon: "13n" ],
+		[ name: "nt_rain-snow", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png,",	label: "Rain and Snow Showers", 				owmIcon: "13n" ],
+		[ name: "snow-night", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46.png,",	label: "Snow", 									owmIcon: "13n" ],
+		[ name: "nt_heavysnow", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/42.png,",	label: "Heavy Snow", 							owmIcon: "13n" ],
+		[ name: "nt_heavysnow", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/42.png,",	label: "Heavy Snow", 							owmIcon: "13n" ],
+		[ name: "nt_tstorms", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/47.png",	label: "Thunderstorms", 						owmIcon: "11n" ],
+		[ name: "nt_blizzard", 					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/42.png",	label: "Blizzard", 								owmIcon: "13n" ],
+		[ name: "nt_thunderstorm", 				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/0.png",	label: "Thunderstorm", 							owmIcon: "11n" ],
+		[ name: "thunderstorm-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/0.png",	label: "Thunderstorm", 							owmIcon: "11n" ],
+		[ name: "nt_windy",						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy", 								owmIcon: "50n" ],
+		[ name: "windy-night",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy", 								owmIcon: "50n" ],
+		[ name: "wind-night",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Windy", 								owmIcon: "50n" ],
+		[ name: "wind-night!",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Dangerously Windy", 					owmIcon: "50n" ],
+		[ name: "wind-foggy-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/20b.png", 	label: "Windy and Foggy", 						owmIcon: "50n" ],
+		[ name: "wind-overcast-night", 			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24b.png", 	label: "Windy and Overcast", 					owmIcon: "50n" ],
+		[ name: "wind-overcast-night!", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24b.png", 	label: "Dangerously Windy and Overcast", 		owmIcon: "50n" ],
+		[ name: "wind-partlycloudy-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/29b.png", 	label: "Windy and Partly Cloudy", 				owmIcon: "50n" ],
+		[ name: "wind-partlycloudy-night!", 	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/29b.png", 	label: "Dangerously Windy and Partly Cloudy", 	owmIcon: "50n" ],
+		[ name: "wind-mostlycloudy-night", 		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27b.png", 	label: "Windy and Mostly Cloudy", 				owmIcon: "50n" ],
+		[ name: "wind-mostly-cloudy-night!",	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27b.png", 	label: "Dangerously Windy and Mostly Cloudy", 	owmIcon: "50n" ],
+		[ name: "breezy-night",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/23.png", 	label: "Breezy", 								owmIcon: "50n" ],
+		[ name: "breezy-overcast-night",		icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/24b.png", 	label: "Breezy and Overcast", 					owmIcon: "04n" ],
+		[ name: "breezy-partlycloudy-night",	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/29b.png", 	label: "Breezy and Partly Cloudy", 				owmIcon: "03n" ],
+		[ name: "breezy-mostlycloudy-night",	icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/27b.png", 	label: "Breezy and Mostly Cloudy", 				owmIcon: "04n" ],
+		[ name: "breezy-foggy-night",			icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/20b.png", 	label: "Breezy and Foggy", 						owmIcon: "50n" ],
+		[ name: "nt_tornado",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/to.png",	label: "Tornado", 								owmIcon: "50n" ],
+		[ name: "tornado-night",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/to.png",	label: "Tornado", 								owmIcon: "50n" ],
+		[ name: "nt_hail",						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46b.png",	label: "Hail", 									owmIcon: "09n" ],
+		[ name: "hail-night",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/46b.png",	label: "Hail", 									owmIcon: "09n" ],
+		[ name: "na",							icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/na.png",	label: "Not Available", 						owmIcon: "50d" ],
+        [ name: "unknown",						icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/na.png",	label: "Unknown", 								owmIcon: "50d" ],
+		[ name: "hurricane",					icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/hc.png",	label: "Hurricane", 							owmIcon: "50d" ],
+		[ name: "tropical-storm",				icon:"https://raw.githubusercontent.com/SANdood/Icons/master/Weather/38.png",	label: "Tropical Storm", 						owmIcon: "50d" ]
 	] 
 //******************************************************************************************
