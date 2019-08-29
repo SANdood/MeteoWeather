@@ -58,14 +58,15 @@
 *	1.1.25 - Added preferences option to use averaged data pver the last update frequency period
 *	1.1.26 - Cosmetic additional debug traces
 *	1.1.27 - Fixed timestamp/timeGet, reduced chars in myTile
-*	1.1.28 - Added wind speed & OWM weather icons for small HE Dashboard tile, fixed day/night transition icons
+*	1.1.28 - Added wind speed attributes for small HE Dashboard tile, fixed day/night transition icons
+*	1.1.29 - Added hubAction timeout, optionally skip creating tile on HE, misc weatherIcons cleanup
 *
 */
 import groovy.json.*
 import java.text.SimpleDateFormat
 import groovy.transform.Field
 
-private getVersionNum() { return "1.1.28" }
+private getVersionNum() { return "1.1.29" }
 private getVersionLabel() { return "Meteobridge Weather Station, version ${versionNum}" }
 private getDebug() { false }
 private getFahrenheit() { true }		// Set to false for Celsius color scale
@@ -261,7 +262,7 @@ metadata {
 
     preferences {
     	input(name: 'updateMins', type: 'enum', description: "Select the update frequency", 
-        	title: "${getVersionLabel()}\n\nUpdate frequency (minutes)", displayDuringSetup: true, defaultValue: '5', options: ['1', '3', '5','10','15','30'], required: true)
+        	title: "${getVersionLabel()}\n\nUpdate frequency (minutes)", displayDuringSetup: true, defaultValue: '5', options: ['1', '2', '3', '5','10','15','30'], required: true)
         input(name: 'avgUpdates', type: 'bool', title: 'Use averaged updates?', defaultValue: false, displayDuringSetup: true, required: true)
         
         // input(name: "zipCode", type: "text", title: "Zip Code or PWS (optional)", required: false, displayDuringSetup: true, description: 'Specify Weather Underground ZipCode or pws:')
@@ -308,7 +309,8 @@ metadata {
                 "std":"0-10,000 (ST)",
                 "real":"0-100,000 (actual)"
             ])
-                
+        if (isHE) { input "skipMyTile", "bool", title: "Skip generation of myTile weather page HTML?", required: true, defaultValue: false, displayDuringSetup: true }
+        
         // input "weather", "device.smartweatherStationTile", title: "Weather...", multiple: true, required: false
     }
     
@@ -947,7 +949,7 @@ def getMeteoWeather( yesterday = false) {
             headers: [ HOST: "${settings.meteoIP}:${settings.meteoPort}", 'Authorization': state.userpass ],
             query: ['template': "{\"timeGet\":${now()}," + MBSystemTemplate + (yesterday ? yesterdayTemplate : state.meteoTemplate), 'contenttype': 'application/json' ],
             null,
-            [callback: meteoWeatherCallback]
+            [callback: meteoWeatherCallback, timeout: 20]
         )
     }
     if (debug) send(name: 'hubAction', value: hubAction, displayed: false, isStateChange: true)
@@ -961,11 +963,11 @@ def getMeteoWeather( yesterday = false) {
     } catch (Exception e) {
     	log.error "getMeteoWeather() sendHubCommand Exception ${e} on ${hubAction}"
     }
-    log.info 'getMeteoWeather() completed'
+    log.info 'getMeteoWeather() update request sent'
 }
 def meteoWeatherCallback(hubResponse) {
 	if (state.callStart) state.callEnd = now() 
-	log.info "meteoWeatherCallback() status: " + hubResponse.status
+	log.info "meteoWeatherCallback() response recieved: " + hubResponse.status
     if (debug) log.debug "meteoWeatherCallback() headers: " + hubResponse.headers
     if (hubResponse.status == 200) {
     	if (debug) log.debug "hubResponse.body: ${hubResponse.body}"
@@ -1005,7 +1007,11 @@ def meteoWeatherCallback(hubResponse) {
         log.info "meteoWeatherCallback() finished"
         return
     } else {
-    	log.error "meteoWeatherCallback() - Invalid hubResponse.status (${hubResponse.status})"
+		if ((hubResponse.status == 503) || (hubResponse.status == 504)) {
+			log.warn "meteoWeatherCallback() - MeteoBridge server is overloaded, will retry next cycle (${hubResponse.status})"
+		} else {
+    		log.error "meteoWeatherCallback() - Invalid response from MeteoBridge server, will retry next cycle (${hubResponse.status})"
+		}		
         return
     }
 }
@@ -1042,7 +1048,7 @@ def updateWeatherTiles() {
 		state.MTweather = device.currentValue('weather')
 		
 		// This is the OpenWeatehrMap icon - used by HE Dashboard weather tile
-		send(name: "weatherIcons", value: getOwmIcon(state.MTicon), displayed: false)
+		// send(name: "weatherIcons", value: getOwmIcon(state.MTicon), displayed: false)
 			 
 	// Forecast Data
         if (!fcstSource || (fcstSource == 'meteo')) {
@@ -1865,7 +1871,10 @@ def darkSkyCallback(response, data) {
 
         }
         if (debug) log.debug "icon: ${icon}"
-        if (icon) send(name: "weatherIcon", value: icon, descriptionText: 'Conditions: ' + darkSky.currently.summary, isStateChange: true)
+		if (icon) {
+			send(name: "weatherIcon", value: icon, descriptionText: 'Conditions: ' + darkSky.currently.summary, isStateChange: true)
+			send(name: 'weatherIcons', value: getOwmIcon(icon), displayed: false)
+		}
         send(name: "weather", value: darkSky.currently.summary, displayed: false)
     }
     
@@ -2040,6 +2049,7 @@ def updateTwcTiles() {
         def weatherIcon = translateTwcIcon( twcConditions.iconCode.toInteger() )
         send(name: "weather", value: twcConditions.wxPhraseMedium, descriptionText: 'Conditions: ' + twcConditions.wxPhraseLong)
         send(name: "weatherIcon", value: weatherIcon, displayed: false)
+		send(name: 'weatherIcons', value: getOwmIcon(weatherIcon), displayed: false)
 	}
 
 	if (twcForecast != [:] ) {
@@ -2182,6 +2192,11 @@ def getMeteoYesterday() {
 }
 private makeMyTile() {
     // myTile (for Hubitat Dashboard)
+    if (state.isST || settings.skipMyTile) {
+        if (debug) log.debug "Skipping 'myTile' update"
+        if (!state.myTileWasCleared) { send(name:'myTile', value: 'null', displayed: false, descriptionText: ''); state.myTileWasCleared = true }
+        return
+    }
     if (debug) log.debug "updateWeatherTiles() - updating myTile - icon: ${state.MTicon}"
     String unit = getTemperatureScale()
     String h = (height_units && (height_units == 'height_in')) ? '"' : 'mm'
