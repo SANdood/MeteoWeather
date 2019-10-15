@@ -117,7 +117,9 @@ private getIsHEHub() { (state.isHE) }					// if (isHEHub) ...
 // **************************************************************************************************************************
 
 metadata {
-    definition (name: "Meteobridge Weather Station", namespace: "sandood", author: "sandood") {
+    definition (name: "Meteobridge Weather Station", namespace: "sandood", author: "sandood",
+	        importUrl: "https://raw.githubusercontent.com/SANdood/MeteoWeather/master/devicetypes/sandood/meteobridge-weather-station.src/meteobridge-weather-station.groovy")
+	{
     	capability "Temperature Measurement"
         capability "Relative Humidity Measurement"
         capability "Ultraviolet Index"
