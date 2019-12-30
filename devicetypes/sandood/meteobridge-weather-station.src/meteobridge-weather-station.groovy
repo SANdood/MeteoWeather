@@ -62,13 +62,14 @@
 *	1.1.29 - Added hubAction timeout, optionally skip creating tile on HE, misc weatherIcons cleanup
 *	1.1.30 - Reschedule if MB server tells us it is busy/overloaded
 *	1.1.31 - Changed all logging to use 'debugOn' preference
+*	1.1.32 - Fixed current weather icon parsing (darkSky.currently.summary errors)
 *
 */
 import groovy.json.*
 import java.text.SimpleDateFormat
 import groovy.transform.Field
 
-private getVersionNum() { return "1.1.31" }
+private getVersionNum() { return "1.1.32" }
 private getVersionLabel() { return "Meteobridge Weather Station, version ${versionNum}" }
 private getDebug() { false }
 private getFahrenheit() { true }		// Set to false for Celsius color scale
@@ -1712,7 +1713,7 @@ def darkSkyCallback(response, data) {
                         if 		(darkSky.currently.summary.contains('Breezy')) icon += '-breezy'
                         else if (darkSky.currently.summary.contains('Windy'))  icon += '-windy'
                         icon += '-night'
-                    } else if (darkSky.currently.startsWith('Heavy Rain')) {
+                    } else if (darkSky.currently.summary.startsWith('Heavy Rain')) {
                         icon = 'heavyrain'
                         if 		(darkSky.currently.summary.contains('Breezy')) icon += '-breezy'
                         else if (darkSky.currently.summary.contains('Windy'))  icon += '-windy'
@@ -1732,9 +1733,9 @@ def darkSkyCallback(response, data) {
                     if 		(darkSky.currently.summary == 'Light Snow') icon = 'lightsnow-night'
                     else if (darkSky.currently.summary == 'Flurries') icon = 'flurries-night'
                     else if (darkSky.currently.summary == 'Possible Light Snow') icon = 'chancelightsnow-night'
-                    else if (darkSky.current.cummary.startsWith('Possible Light Snow')) {
-                        if 	    (darkSky.currently.contains('Breezy')) icon = 'chancelightsnowbz-night'
-                        else if (darkSky.currently.contains('Windy')) icon = 'chancelightsnowwy-night'
+                    else if (darkSky.currently.summary.startsWith('Possible Light Snow')) {
+                        if 	    (darkSky.currently.summary.contains('Breezy')) icon = 'chancelightsnowbz-night'
+                        else if (darkSky.currently.summary.contains('Windy')) icon = 'chancelightsnowwy-night'
                     } else if (darkSky.currently.summary.startsWith('Possible')) icon = 'chancesnow-night'
                     break;
                 case 'sleet':
@@ -2401,6 +2402,8 @@ private String translateTwcIcon( Integer iconNumber ) {
 }
 private estimateLux() {
 	def isNight = (device.currentValue('isDay') == 0)
+	def minLux = 0
+	def maxLux
 	// If we have it, use solarRadiation as a proxy for Lux
     def val = settings.shortStats ? state.meteoWeather.current[30] : state.meteoWeather?.current?.solRad
     if ((val != null) && (val == "")) val = null
@@ -2409,25 +2412,35 @@ private estimateLux() {
     	switch (settings.lux_scale) {
         	case 'std':
             	// 0-10,000 - SmartThings Weather Tile scale
-                lux = isNight ? 10 : roundIt(((val / 0.225) * 10.0), 0)	// Hack to approximate SmartThings Weather Station
-        		return (lux < 10) ? 10 : ((lux > 10000) ? 10000 : lux)
+                //lux = roundIt(((val / 0.225) * 10.0), 0)	// Hack to approximate SmartThings Weather Station
+				lux = roundIt((val * 12.67), 0)	// Hack to approximate SmartThings Weather Station
+				//log.info("solRad: ${val} = lux: ${lux} (std)")
+				// if (isNight && (lux < minLux)) lux = minLux
+        		return (lux < minLux) ? minLux : ((lux > 30000) ? 30000 : lux)
     			break;
                 
         	case 'real':
             	// 0-100,000 - realistic estimated conversion from SolarRadiation
-                lux = isNight ? 10 : roundIt((val / 0.0079), 0)		// Hack approximation of Davis w/m^2 to lx
-                return (lux< 10) ? 10 : ((lux > 100000) ? 100000 : lux)
+                //lux = roundIt((val / 0.0079), 0)		// Hack approximation of Davis w/m^2 to lx
+				lux = roundIt((val * 126.7), 0)		// Hack approximation of Davis w/m^2 to lx
+				//log.info("solRad: ${val} = lux: ${lux} (real)")
+				// if (isNight && (lux < minLux)) lux = minLux
+                return (lux < minLux) ? minLux : ((lux > 300000) ? 300000 : lux)
                 break;
                 
             case 'default':
             default:
-            	lux = isNight ? 10 : roundIt((val / 0.225), 0)	// Hack to approximate Aeon multi-sensor values
-        		return (lux < 10) ? 10 : ((lux > 1000) ? 1000 : lux)
+            	//lux = roundIt((val / 0.225), 0)			// Hack to approximate Aeon multi-sensor values
+				//lux = roundIt((val / 0.1267), 0)
+				lux = roundIt((val * 1.267), 0)
+				//log.info("solRad: ${val} = lux: ${lux} (default)")
+				// if (isNight && (lux < minLux)) lux = minLux
+        		return (lux < minLux) ? minLux : ((lux > 3000) ? 3000 : lux)
                 break;
         }
     }
     // handle other approximations here
-    def lux = 10
+    def lux = minLux
     def now = new Date().time
     if (!isNight) {
         //day
@@ -2476,7 +2489,7 @@ private estimateLux() {
             //dusk
             lux = roundIt((lux * (beforeSunset/oneHour)), 0)
         }
-        if (lux < 10) lux = 10
+        if (lux < minLux) lux = minLux
         
         // Now, adjust the scale based on the settings
         if (settings.lux_scale) {
@@ -2489,9 +2502,9 @@ private estimateLux() {
     } else {
         //night - always set to 10 for now
         //could do calculations for dusk/dawn too
-        lux = 10
+        lux = minLux
     }
-    lux
+    return lux
 }
 def getPurpleAirAQI() {
 	if (debugOn) log.trace "getPurpleAirAQI() entered"
