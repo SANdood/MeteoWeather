@@ -1,4 +1,4 @@
-## ***Meteobridge Weather Station v1.1.31 released on October 9, 2019***
+## ***Meteobridge Weather Station v1.1.32 released on December 29, 2019***
 
 ### What's New?
 - Now supports extended timeout on Hubitat platform
@@ -6,6 +6,9 @@
 - Auto-reschedules polling slot if MeteoBridge reports busy
 - Preference setting to skip creating the MyTile content
 - Preference setting to enable debug logging
+#### Dec 29, 2019
+- Adjust luxScale to more closely match SmartThings' scales
+- Fix weather icon parsing (darkSky.currently.summary typos)
 
 ### Overview
 Meteobridge (www.meteobridge.com) is an inexpensive Linux-based server that is used by many to collect data from your local weather station and distribute it to one or more public weather sources (including Weather Underground, for example). It supports data collection from a large number of popular weather stations, and it offers a local API that allows clients/applications to retrieve the latest weather station data on demand.
