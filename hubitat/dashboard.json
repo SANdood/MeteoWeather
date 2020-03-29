@@ -1,0 +1,287 @@
+{
+  "roundedCorners": 5,
+  "dateFormat": "MM/DD/YYYY",
+  "hideLabels": false,
+  "customColors": [],
+  "colWidth": 200,
+  "cloudRefresh": 60,
+  "hsmPin": "",
+  "hide3dot": false,
+  "clockMode": true,
+  "gridGap": 5,
+  "tiles": [
+    {
+      "rowSpan": 1,
+      "template": "weather",
+      "col": 7,
+      "colSpan": 1,
+      "id": 0,
+      "row": 4,
+      "device": "2"
+    },
+    {
+      "rowSpan": 1,
+      "template": "attribute",
+      "col": 5,
+      "colSpan": 1,
+      "id": 5,
+      "row": 1,
+      "device": "2",
+      "templateExtra": "dewpoint"
+    },
+    {
+      "rowSpan": 1,
+      "template": "attribute",
+      "col": 6,
+      "colSpan": 1,
+      "id": 6,
+      "row": 1,
+      "device": "2",
+      "templateExtra": "heatIndex"
+    },
+    {
+      "rowSpan": 1,
+      "template": "water",
+      "col": 1,
+      "colSpan": 1,
+      "id": 7,
+      "row": 3,
+      "device": "2",
+      "templateExtra": "water"
+    },
+    {
+      "rowSpan": 1,
+      "template": "attribute",
+      "col": 2,
+      "colSpan": 1,
+      "id": 9,
+      "row": 3,
+      "device": "2",
+      "templateExtra": "precipYesterday"
+    },
+    {
+      "rowSpan": 1,
+      "template": "attribute",
+      "col": 3,
+      "colSpan": 1,
+      "id": 10,
+      "row": 3,
+      "device": "2",
+      "templateExtra": "precipLastHour"
+    },
+    {
+      "rowSpan": 1,
+      "template": "attribute",
+      "col": 4,
+      "colSpan": 1,
+      "id": 11,
+      "row": 3,
+      "device": "2",
+      "templateExtra": "precipToday"
+    },
+    {
+      "rowSpan": 1,
+      "template": "attribute",
+      "col": 3,
+      "colSpan": 1,
+      "id": 12,
+      "row": 2,
+      "device": "2",
+      "templateExtra": "sunriseAPM"
+    },
+    {
+      "rowSpan": 1,
+      "template": "attribute",
+      "col": 4,
+      "colSpan": 1,
+      "id": 13,
+      "row": 4,
+      "device": "2",
+      "templateExtra": "solarRadiation"
+    },
+    {
+      "rowSpan": 1,
+      "template": "attribute",
+      "col": 7,
+      "colSpan": 1,
+      "id": 14,
+      "row": 1,
+      "device": "2",
+      "templateExtra": "windChill"
+    },
+    {
+      "rowSpan": 1,
+      "template": "attribute",
+      "col": 1,
+      "colSpan": 1,
+      "id": 15,
+      "row": 4,
+      "device": "2",
+      "templateExtra": "weather"
+    },
+    {
+      "rowSpan": 2,
+      "template": "attribute",
+      "col": 1,
+      "colSpan": 2,
+      "id": 17,
+      "row": 1,
+      "device": "2",
+      "templateExtra": "myTile"
+    },
+    {
+      "rowSpan": 1,
+      "template": "attribute",
+      "col": 5,
+      "colSpan": 1,
+      "id": 18,
+      "row": 3,
+      "device": "2",
+      "templateExtra": "precipForecast"
+    },
+    {
+      "rowSpan": 1,
+      "template": "attribute",
+      "col": 4,
+      "colSpan": 1,
+      "id": 20,
+      "row": 2,
+      "device": "2",
+      "templateExtra": "sunriseAPM"
+    },
+    {
+      "rowSpan": 1,
+      "template": "attribute",
+      "col": 8,
+      "colSpan": 1,
+      "id": 23,
+      "row": 4,
+      "device": "2",
+      "templateExtra": "lastUpdated"
+    },
+    {
+      "rowSpan": 1,
+      "template": "illuminance",
+      "col": 5,
+      "colSpan": 1,
+      "id": 24,
+      "row": 4,
+      "device": "2",
+      "templateExtra": "illuminance"
+    },
+    {
+      "id": 25,
+      "col": 6,
+      "colSpan": 1,
+      "device": "2",
+      "row": 3,
+      "rowSpan": 1,
+      "template": "attribute",
+      "templateExtra": "precipTomorrow"
+    },
+    {
+      "id": 26,
+      "col": 3,
+      "colSpan": 1,
+      "device": "2",
+      "row": 4,
+      "rowSpan": 1,
+      "template": "attribute",
+      "templateExtra": "uvIndex"
+    },
+    {
+      "id": 27,
+      "col": 6,
+      "colSpan": 1,
+      "device": "1521",
+      "row": 4,
+      "rowSpan": 1,
+      "template": "switches"
+    },
+    {
+      "id": 28,
+      "col": 4,
+      "colSpan": 1,
+      "device": "2",
+      "row": 1,
+      "rowSpan": 1,
+      "template": "attribute",
+      "templateExtra": "airQuality"
+    },
+    {
+      "id": 29,
+      "col": 3,
+      "colSpan": 1,
+      "device": "2",
+      "row": 1,
+      "rowSpan": 1,
+      "template": "attribute",
+      "templateExtra": "forecast"
+    },
+    {
+      "id": 30,
+      "col": 7,
+      "colSpan": 1,
+      "device": "2",
+      "row": 3,
+      "rowSpan": 1,
+      "template": "attribute",
+      "templateExtra": "popTomorrow"
+    },
+    {
+      "id": 31,
+      "col": 6,
+      "colSpan": 1,
+      "device": "2",
+      "row": 2,
+      "rowSpan": 1,
+      "template": "attribute",
+      "templateExtra": "moonriseAPM"
+    },
+    {
+      "id": 32,
+      "col": 7,
+      "colSpan": 1,
+      "device": "2",
+      "row": 2,
+      "rowSpan": 1,
+      "template": "attribute",
+      "templateExtra": "moonsetAPM"
+    },
+    {
+      "id": 33,
+      "col": 5,
+      "colSpan": 1,
+      "device": "2",
+      "row": 2,
+      "rowSpan": 1,
+      "template": "attribute",
+      "templateExtra": "moonPhase"
+    },
+    {
+      "id": 34,
+      "col": 2,
+      "colSpan": 1,
+      "device": "2",
+      "row": 4,
+      "rowSpan": 1,
+      "template": "attribute",
+      "templateExtra": "evapotranspiration"
+    }
+  ],
+  "goBack": true,
+  "modePin": "",
+  "bgColor": "blue",
+  "lanRefresh": 30,
+  "iconSize": 42,
+  "cols": 8,
+  "rowHeight": 160,
+  "hideEvents": false,
+  "tempScale": "F",
+  "noColors": false,
+  "readOnly": null,
+  "rows": 5,
+  "hideIconText": false,
+  "name": "MeteoBridge",
+  "fontSize": 12
+}
