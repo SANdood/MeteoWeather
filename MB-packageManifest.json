@@ -1,0 +1,16 @@
+{
+  "packageName": "MeteoBridge Weather Station",
+  "author": "Barry A. Burke",
+  "version": "1.1.32",
+  "minimumHEVersion": "2.1.8",
+  "dateReleased": "2019-12-19",
+  "drivers": [
+    {
+      "id": "04288d2e-0879-4ea6-83f8-367d5f8aa865",
+      "name": "Meteobridge Weather Station",
+      "namespace": "sandood",
+      "location": "https://raw.githubusercontent.com/SANdood/MeteoWeather/master/devicetypes/sandood/meteobridge-weather-station.src/meteobridge-weather-station.groovy",
+      "required": true
+    }
+  ]
+}
