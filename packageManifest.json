@@ -4,6 +4,9 @@
   "version": "1.1.32",
   "minimumHEVersion": "2.1.8",
   "dateReleased": "2019-12-19",
+  "releaseNotes": "",
+  "documentationLink": "https://github.com/SANdood/MeteoWeather/blob/master/README.md",
+  "communityLink": "https://community.hubitat.com/t/release-free-meteobridge-weatherbridge-weather-station-v-1-1/12635",
   "drivers": [
     {
       "id": "04288d2e-0879-4ea6-83f8-367d5f8aa865",
